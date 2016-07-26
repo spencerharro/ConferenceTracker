@@ -53,6 +53,8 @@ namespace ConferenceTracker
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
         static int maxStringLength = 33;
+
+        //test comment on north page for Git purposes
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
