@@ -55,7 +55,7 @@ namespace ConferenceTracker
         static int maxStringLength = 33;
 
         //test comment on north page for Git purposes
-        //Added one more comment - I wanted to change this
+        //Added one more comment
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
