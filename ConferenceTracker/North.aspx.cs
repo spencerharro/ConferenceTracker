@@ -82,6 +82,17 @@ namespace ConferenceTracker
 
             }
         }
+        private string LookupInWebConfig(string element)
+        {
+            System.Configuration.Configuration rootWebConfig = System.Web.Configuration.WebConfigurationManager.OpenWebConfiguration(null);
+            if(rootWebConfig.AppSettings.Settings.Count > 0)
+            {
+                System.Configuration.KeyValueConfigurationElement customSetting = rootWebConfig.AppSettings.Settings[element];
+                if (customSetting != null)
+                    return customSetting.ToString();
+            }
+            
+        }
         private void RunStartupRoutine()
         {
             //CLEAR LISTBOX
