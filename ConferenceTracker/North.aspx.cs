@@ -29,44 +29,47 @@ namespace ConferenceTracker
         //Initialize LINQ to Entities Connection
         I2RloginEntities db = new I2RloginEntities();
 
-        //Select Setup profile:
-        string roomName = "North";
-        
-        
-        
+        //Initialize Room Profile (Used in PageLoad to set Database properties)
+        private Profile profile = new Profile();
         
         //Initialize Conference Room
         Room room = new Room();
-        
-        //Set Conference Room Status ID - for StatusBoard
-        static int conferenceRoomStatusID = 10;  //10 is status for North
-
-        //Microsoft Exchange Web Services Credentials
-        static string emailAddress = "north@i2r.com";
-        static string emailPassword = "Catesuser1";
-        private string emailURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
-        
-        //Google - Retired in ConferenceTracker 2.1.0
-        ////Google
-        //static string[] Scopes = { CalendarService.Scope.CalendarReadonly, CalendarService.Scope.Calendar };
-        //static string ApplicationName = "Conference Tracker";
-        //static string clientId = "850215639552-7nr5sn2dc5hrn8keilhm4t0cgcn75igu.apps.googleusercontent.com";
-        //static string clientSecret = "bE4zxcyawDCMdla1UzVylJxy";
-        ////ID for the calendar of interest
-        //static string calID = "kupj7mf53rgeu2mbtlhhf49cps@group.calendar.google.com";
-        //Location of the .json credential file for accessing Google's API
-        //static string credfilepath = @"c:\Authentication\client_secret_850215639552-7nr5sn2dc5hrn8keilhm4t0cgcn75igu.apps.googleusercontent.com.json";
+        const string _roomName = "North";
 
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
         static int maxStringLength = 33;
+        
+        // -----------------------END PAGE SETUP ----------------------------- //
+        ////Set Conference Room Status ID - for StatusBoard
+        //static int conferenceRoomStatusID = 10;  //10 is status for North
+
+        ////Microsoft Exchange Web Services Credentials
+        //static string emailAddress = "north@i2r.com";
+        //static string emailPassword = "Catesuser1";
+        //private string emailURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
+        
+        ////Google - Retired in ConferenceTracker 2.1.0
+        //////Google
+        ////static string[] Scopes = { CalendarService.Scope.CalendarReadonly, CalendarService.Scope.Calendar };
+        ////static string ApplicationName = "Conference Tracker";
+        ////static string clientId = "850215639552-7nr5sn2dc5hrn8keilhm4t0cgcn75igu.apps.googleusercontent.com";
+        ////static string clientSecret = "bE4zxcyawDCMdla1UzVylJxy";
+        //////ID for the calendar of interest
+        ////static string calID = "kupj7mf53rgeu2mbtlhhf49cps@group.calendar.google.com";
+        ////Location of the .json credential file for accessing Google's API
+        ////static string credfilepath = @"c:\Authentication\client_secret_850215639552-7nr5sn2dc5hrn8keilhm4t0cgcn75igu.apps.googleusercontent.com.json";
+
+        
 
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
-            //Set Conference Room Info
-            room.RoomID = 1;    //North
-            room.RoomName = "North Conference Room";
+            profile.SetupRoomProfile(_roomName, db);
+
+            //Setup Database
+            room.RoomID = profile.room.RoomID;
+            room.RoomName = profile.room.RoomName;
             db.SaveChanges();
 
             //Run through startup routine if first page view
@@ -160,13 +163,13 @@ namespace ConferenceTracker
                     }
 
                     //Check if the Status ID shows the emp out of the room, and if the emp is an an attendee
-                    if (emp.StatusID != conferenceRoomStatusID && StatusBoardAttendee.EmployeeID != 0)
+                    if (emp.StatusID != profile.conferenceRoomStatusID && StatusBoardAttendee.EmployeeID != 0)
                     {
                         //Remove emp from attendees
                         RemoveAttendeeByEmployeeID(StatusBoardAttendee.EmployeeID);
                     }
                     //Check if the Status ID shows the emp in the room, and if the emp is not already an attendee
-                    else if (emp.StatusID == conferenceRoomStatusID && StatusBoardAttendee.EmployeeID == 0 && emp.ReturnDate != null)
+                    else if (emp.StatusID == profile.conferenceRoomStatusID && StatusBoardAttendee.EmployeeID == 0 && emp.ReturnDate != null)
                     {
                         AddAttendee(CreateAttendee(emp.EmployeeID,
                             room.RoomName.ToString(),
@@ -292,7 +295,7 @@ namespace ConferenceTracker
                     var checkingInEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
 
                     //Modify Status Board entries
-                    checkingInEmployee.StatusID = conferenceRoomStatusID;
+                    checkingInEmployee.StatusID = profile.conferenceRoomStatusID;
                     //DateTime timeOut = DateTime.Now.Add(TimeSpan.Parse(durationDropDownBox.SelectedValue));
                     //checkingInEmployee.ReturnDate = timeOut; //Change Status Board Return Time
                     checkingInEmployee.Remarks = room.RoomName.ToString() + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": " + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
@@ -413,22 +416,22 @@ namespace ConferenceTracker
         {
             ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
 
-            service.Credentials = new WebCredentials(emailAddress, emailPassword);
+            service.Credentials = new WebCredentials(profile.emailAddress, profile.emailPassword);
             
 
             try
             {
                 // Previous saved connection string
-                service.Url = new Uri(emailURL);
+                service.Url = new Uri(profile.emailURL);
             }
             catch
             {
                 try
                 {
                     // Use autodiscover service to relocate url
-                    service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback);
+                    service.AutodiscoverUrl(profile.emailAddress, RedirectionUrlValidationCallback);
                     //Save new url TODO
-                    emailURL = service.Url.AbsoluteUri;
+                    profile.emailURL = service.Url.AbsoluteUri;
                    
                 }
                 catch(Exception ex)
