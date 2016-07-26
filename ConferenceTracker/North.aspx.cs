@@ -316,11 +316,11 @@ namespace ConferenceTracker
                 //Save changes to database
                 db.SaveChanges();
             }
+
             //Set page controls
             EnableNormalControls();
 
             RunStartupRoutine();
-
 
             //LOAD Meeting List
             SyncMeetingListWithMeetingDB();
