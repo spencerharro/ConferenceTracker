@@ -7,6 +7,7 @@ namespace ConferenceTracker
 {
     public class ProfileSetup
     {
+        public string roomNameString { get; set; }
 
         public Profile SetupRoomProfile(string roomName)
         {

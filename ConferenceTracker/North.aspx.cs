@@ -28,6 +28,13 @@ namespace ConferenceTracker
         // -------------------------PAGE SETUP-------------------------------- //
         //Initialize LINQ to Entities Connection
         I2RloginEntities db = new I2RloginEntities();
+
+        //Select Setup profile:
+        string roomName = "North";
+        
+        
+        
+        
         //Initialize Conference Room
         Room room = new Room();
         
