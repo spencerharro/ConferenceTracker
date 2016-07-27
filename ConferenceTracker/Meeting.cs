@@ -17,7 +17,7 @@ namespace ConferenceTracker
         public int tblIndex { get; set; }
         public int RoomID { get; set; }
         public int MeetingID { get; set; }
-        public string GoogleCalendarID { get; set; }
+        public string CalendarID { get; set; }
         public string Name { get; set; }
         public Nullable<System.DateTime> StartTime { get; set; }
         public Nullable<System.DateTime> EndTime { get; set; }

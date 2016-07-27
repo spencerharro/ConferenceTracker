@@ -28,7 +28,7 @@ namespace ConferenceTracker
     {
         // -------------------------PAGE SETUP-------------------------------- //
         //Initialize LINQ to Entities Connection
-        I2RloginEntities db = new I2RloginEntities();
+        I2RloginEntities1 db = new I2RloginEntities1();
         //Initialize Conference Room
         Room room = new Room();
 
@@ -460,7 +460,7 @@ namespace ConferenceTracker
                     //Doesn't work
                     if (db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault() == null)
                     {
-                        db.Meetings.Add(new Meeting { MeetingID = 1, GoogleCalendarID = "", Name = "Room Available", StartTime = null, EndTime = null, RoomID = room.RoomID });
+                        db.Meetings.Add(new Meeting { MeetingID = 1, CalendarID = "", Name = "Room Available", StartTime = null, EndTime = null, RoomID = room.RoomID });
                         //db.SaveChanges();
                     }
 
@@ -496,7 +496,7 @@ namespace ConferenceTracker
                             currentMeeting.StartTime.Value.ToShortTimeString(),
                             currentMeeting.EndTime.Value.ToShortTimeString(),
                             (room.RoomName + ":"));
-                        if (currentMeeting.GoogleCalendarID.ToString() == "")
+                        if (currentMeeting.CalendarID.ToString() == "")
                         {
                             SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
                         }
@@ -525,7 +525,7 @@ namespace ConferenceTracker
                         {
                             //TODO:  Need to fix how appointments that are not activated are determined.
                             ////Find events besides current event
-                            //appointmentsNotActivated = (appointments.Items.Where(ap => !TruncateMyLongString(ap.Id.ToString(),50).Equals(currentMeeting.GoogleCalendarID.ToString())).Select(ev => ev)).ToList();
+                            //appointmentsNotActivated = (appointments.Items.Where(ap => !TruncateMyLongString(ap.Id.ToString(),50).Equals(currentMeeting.CalendarID.ToString())).Select(ev => ev)).ToList();
 
                             ////Set the suggestions
                             //firstSuggestion = appointmentsNotActivated.Cast<Appointment>().ElementAt(0);
@@ -587,7 +587,7 @@ namespace ConferenceTracker
                                 Name = TruncateMyLongString(firstSuggestion.Subject, 50),
                                 StartTime = firstSuggestion.Start,
                                 EndTime = firstSuggestion.End,
-                                GoogleCalendarID = TruncateMyLongString(firstSuggestion.Id.ToString(), 50),
+                                CalendarID = TruncateMyLongString(firstSuggestion.Id.ToString(), 50),
                                 RoomID = room.RoomID
                             });
 
@@ -600,7 +600,7 @@ namespace ConferenceTracker
                                 Name = TruncateMyLongString(secondSuggestion.Subject, 50),
                                 StartTime = secondSuggestion.Start,
                                 EndTime = secondSuggestion.End,
-                                GoogleCalendarID = TruncateMyLongString(secondSuggestion.Id.ToString(), 50),
+                                CalendarID = TruncateMyLongString(secondSuggestion.Id.ToString(), 50),
                                 RoomID = room.RoomID
                             });
                             //db.SaveChanges();
@@ -639,7 +639,7 @@ namespace ConferenceTracker
         //        //Doesn't work
         //        if (db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault() == null)
         //        {
-        //            db.Meetings.Add(new Meeting { MeetingID = 1, GoogleCalendarID = "", Name = "Room Available", StartTime = null, EndTime = null, RoomID = room.RoomID });
+        //            db.Meetings.Add(new Meeting { MeetingID = 1, CalendarID = "", Name = "Room Available", StartTime = null, EndTime = null, RoomID = room.RoomID });
         //            //db.SaveChanges();
         //        }
 
@@ -675,7 +675,7 @@ namespace ConferenceTracker
         //                currentMeeting.StartTime.Value.ToShortTimeString(),
         //                currentMeeting.EndTime.Value.ToShortTimeString(),
         //                (room.RoomName + ":"));
-        //            if (currentMeeting.GoogleCalendarID.ToString() == "")
+        //            if (currentMeeting.CalendarID.ToString() == "")
         //            {
         //                SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
         //            }
@@ -703,7 +703,7 @@ namespace ConferenceTracker
         //            else
         //            {
         //                //Find events besides current event
-        //                eventsNotActivated = (googleCalendarEvents.Items.Where(ev => !ev.Id.Equals(currentMeeting.GoogleCalendarID)).Select(ev => ev)).ToList();
+        //                eventsNotActivated = (googleCalendarEvents.Items.Where(ev => !ev.Id.Equals(currentMeeting.CalendarID)).Select(ev => ev)).ToList();
 
         //                //Set the suggestions
         //                firstSuggestion = eventsNotActivated.Cast<Event>().ElementAt(0);
@@ -762,7 +762,7 @@ namespace ConferenceTracker
         //                    Name = TruncateMyLongString(firstSuggestion.Summary, 50),
         //                    StartTime = firstSuggestion.Start.DateTime,
         //                    EndTime = firstSuggestion.End.DateTime,
-        //                    GoogleCalendarID = TruncateMyLongString(firstSuggestion.Id, 50),
+        //                    CalendarID = TruncateMyLongString(firstSuggestion.Id, 50),
         //                    RoomID = room.RoomID
         //                });
 
@@ -775,7 +775,7 @@ namespace ConferenceTracker
         //                    Name = TruncateMyLongString(secondSuggestion.Summary, 50),
         //                    StartTime = secondSuggestion.Start.DateTime,
         //                    EndTime = secondSuggestion.End.DateTime,
-        //                    GoogleCalendarID = TruncateMyLongString(secondSuggestion.Id, 50),
+        //                    CalendarID = TruncateMyLongString(secondSuggestion.Id, 50),
         //                    RoomID = room.RoomID
         //                });
         //                //db.SaveChanges();
@@ -842,7 +842,7 @@ namespace ConferenceTracker
                     currentMeeting.StartTime.Value.ToShortTimeString(),
                     currentMeeting.EndTime.Value.ToShortTimeString(),
                     (room.RoomName + ":"));
-                if (currentMeeting.GoogleCalendarID.ToString() == "")
+                if (currentMeeting.CalendarID.ToString() == "")
                 {
                     SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
                 }
@@ -915,7 +915,7 @@ namespace ConferenceTracker
                     Name = firstSuggestion.Name,
                     StartTime = firstSuggestion.StartTime,
                     EndTime = firstSuggestion.EndTime,
-                    GoogleCalendarID = "",
+                    CalendarID = "",
                     RoomID = room.RoomID
                 });
 
@@ -928,7 +928,7 @@ namespace ConferenceTracker
                     Name = secondSuggestion.Name,
                     StartTime = secondSuggestion.StartTime,
                     EndTime = secondSuggestion.EndTime,
-                    GoogleCalendarID = "",
+                    CalendarID = "",
                     RoomID = room.RoomID
                 });
                 // TODO Had this commented out
@@ -1006,7 +1006,7 @@ namespace ConferenceTracker
                 newMeeting.MeetingID = 1;
                 newMeeting.StartTime = DateTime.Now;
                 newMeeting.EndTime = (DateTime.Now + TimeSpan.FromHours(1));
-                newMeeting.GoogleCalendarID = "";
+                newMeeting.CalendarID = "";
                 newMeeting.RoomID = room.RoomID;
                 db.Meetings.Add(newMeeting);
                 db.SaveChanges();
@@ -1042,7 +1042,7 @@ namespace ConferenceTracker
                 startingMeeting = new Meeting
                 {
                     MeetingID = 1,
-                    GoogleCalendarID = next1Meeting.GoogleCalendarID,
+                    CalendarID = next1Meeting.CalendarID,
                     Name = next1Meeting.Name,
                     StartTime = next1Meeting.StartTime,
                     EndTime = next1Meeting.EndTime,
@@ -1055,7 +1055,7 @@ namespace ConferenceTracker
                 startingMeeting = new Meeting
                 {
                     MeetingID = 1,
-                    GoogleCalendarID = "",
+                    CalendarID = "",
                     Name = next1MeetingNameLabel.Text,
                     StartTime = DateTime.Now,
                     EndTime = DateTime.Now.AddHours(1),
@@ -1091,7 +1091,7 @@ namespace ConferenceTracker
                 startingMeeting = new Meeting
                 {
                     MeetingID = 1,
-                    GoogleCalendarID = next2Meeting.GoogleCalendarID,
+                    CalendarID = next2Meeting.CalendarID,
                     Name = next2Meeting.Name,
                     StartTime = next2Meeting.StartTime,
                     EndTime = next2Meeting.EndTime,
@@ -1103,7 +1103,7 @@ namespace ConferenceTracker
                 startingMeeting = new Meeting
                 {
                     MeetingID = 1,
-                    GoogleCalendarID = "",
+                    CalendarID = "",
                     Name = next2MeetingNameLabel.Text,
                     StartTime = DateTime.Now,
                     EndTime = DateTime.Now.AddHours(1),
