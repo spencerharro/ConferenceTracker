@@ -423,8 +423,6 @@ namespace ConferenceTracker
                         //db.SaveChanges();
                     }
 
-                    List<Appointment> appointmentsNotActivated;
-
                     Appointment firstSuggestion;
                     Appointment secondSuggestion;
 
@@ -466,29 +464,45 @@ namespace ConferenceTracker
                         AddNewMeetingButton.Visible = false;
                         ClearCurrentMeetingButton.Visible = true;
                     }
+
+                    // Will store meetings that have not been promoted yet
+                    List<Appointment> inactivatedMeetings = new List<Appointment>();
+                    
+                    //Ensure that appointments from EWS exist
                     if (appointments != null)
                     {
+                        //If room is available, suggestions should be first two entries in appointments
                         if (roomAvailable)
                         {
                             //Set the suggestions
-                            firstSuggestion = appointments.Items.Cast<Appointment>().ElementAt(0);
-                            secondSuggestion = appointments.Items.Cast<Appointment>().ElementAt(1);
+                            inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
+                            inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
                         }
+                        //If room is occupied, suggestions should be appointments NOT listed in appointments
                         else
                         {
-                            //TODO:  Need to fix how appointments that are not activated are determined.
-                            ////Find events besides current event
-                            //appointmentsNotActivated = (appointments.Items.Where(ap => !TruncateMyLongString(ap.Id.ToString(),50).Equals(currentMeeting.CalendarID.ToString())).Select(ev => ev)).ToList();
+                            // Loop through appointments and add inactivated appointments to inactivated appointments variable
+                            foreach(Appointment a in appointments)
 
-                            ////Set the suggestions
-                            //firstSuggestion = appointmentsNotActivated.Cast<Appointment>().ElementAt(0);
-                            //secondSuggestion = appointmentsNotActivated.Cast<Appointment>().ElementAt(1);
-                            //Temporary
-                            firstSuggestion = appointments.Items.Cast<Appointment>().ElementAt(0);
-                            secondSuggestion = appointments.Items.Cast<Appointment>().ElementAt(1);
+                            {
+                                if(!a.Id.ToString().Equals(currentMeeting.CalendarID.ToString()))
+                                {
+                                    inactivatedMeetings.Add(a);
+                                }
+                            }
+                            
+
+                            //If all else fails, just set the next two appointments to the first two in the appointments list.
+                            if(inactivatedMeetings == null)
+                            {
+                                inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
+                                inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
+                            }
+                                                  
                         }
-
-
+                        // Set first/second suggestions based on entries in inactivated meetings variable
+                        firstSuggestion = inactivatedMeetings.ElementAt(0);
+                        secondSuggestion = inactivatedMeetings.ElementAt(1);
                         //Suggest the first meeting, adjusting for it's time
                         if (firstSuggestion.Start < midnightTonight && firstSuggestion != null)
                         {
@@ -540,7 +554,7 @@ namespace ConferenceTracker
                                 Name = TruncateMyLongString(firstSuggestion.Subject, 50),
                                 StartTime = firstSuggestion.Start,
                                 EndTime = firstSuggestion.End,
-                                CalendarID = TruncateMyLongString(firstSuggestion.Id.ToString(), 50),
+                                CalendarID = firstSuggestion.Id.ToString(),
                                 RoomID = room.RoomID
                             });
 
@@ -553,7 +567,7 @@ namespace ConferenceTracker
                                 Name = TruncateMyLongString(secondSuggestion.Subject, 50),
                                 StartTime = secondSuggestion.Start,
                                 EndTime = secondSuggestion.End,
-                                CalendarID = TruncateMyLongString(secondSuggestion.Id.ToString(), 50),
+                                CalendarID = secondSuggestion.Id.ToString(),
                                 RoomID = room.RoomID
                             });
                             //db.SaveChanges();
