@@ -116,14 +116,20 @@ namespace ConferenceTracker
                     {
                         emp.Remarks = room.RoomName + ((currentMeeting.Name == "Room Available") ? "" : ": " + currentMeeting.Name.ToString());
                         //Set SB return time
-                        //if(emp.ReturnDate == null)
-                        //{
-                        //    DateTime startTime = DateTime.Parse(currentMeeting.StartTime.ToString());
-                        //    DateTime endTime = DateTime.Parse(currentMeeting.EndTime.ToString());
-                        //    TimeSpan duration = endTime.Subtract(startTime);
-                        //    DateTime nowTime = DateTime.Now;
-                        //    emp.ReturnDate = nowTime + duration;
-                        //}
+                        if (emp.ReturnDate == null)
+                        {
+                            try
+                            {
+                                DateTime startTime = DateTime.Parse(currentMeeting.StartTime.ToString());
+                                DateTime endTime = DateTime.Parse(currentMeeting.EndTime.ToString());
+                                TimeSpan duration = endTime.Subtract(startTime);
+                                DateTime nowTime = DateTime.Now;
+                                emp.ReturnDate = nowTime + duration;
+                            }catch
+                            {
+
+                            }
+                        }
 
                     }
 
