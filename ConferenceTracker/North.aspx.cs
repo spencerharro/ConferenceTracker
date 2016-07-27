@@ -37,12 +37,13 @@ namespace ConferenceTracker
         static string emailAddress = "north@i2r.com";
         static string emailPassword = "Catesuser1";
         private string emailURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
+        ExchangeService _service;
 
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
         static int maxStringLength = 33;
 
-        List<InvitedAttendee> currentMeetingInvites;
+        List<InvitedAttendee> currentMeetingInvites = new List<InvitedAttendee>();
 
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
@@ -51,6 +52,9 @@ namespace ConferenceTracker
             room.RoomID = 1;    //North
             room.RoomName = "North Conference Room";
             db.SaveChanges();
+
+            //Create Exchange Service
+            _service = CreateExchangeService();
 
             //Run through startup routine if first page view
             if (!IsPostBack)
@@ -61,12 +65,14 @@ namespace ConferenceTracker
                 //Run Startup Routine
                 RunStartupRoutine();
 
-                //Sync Meeting List with Exchange Calendar
-                SyncMeetingListWithEWSCalendar();
+                
             }
         }
         private void RunStartupRoutine()
         {
+            //Sync Meeting List with Exchange Calendar
+            SyncMeetingListWithEWSCalendar();
+
             //CLEAR LISTBOX
             ClearAttendeesList();
 
@@ -269,7 +275,7 @@ namespace ConferenceTracker
                     //Set page controls
                     EnableNormalControls();
                 }
-                else if (employeeDropDownBox.SelectedIndex > 1)
+                else if (employeeDropDownBox.SelectedIndex > 1 && Int32.Parse(employeeDropDownBox.SelectedValue) > 0)
                 {
                     //Find the employee in the Employee database
                     int employeeID = Int32.Parse(employeeDropDownBox.SelectedValue);
@@ -382,34 +388,9 @@ namespace ConferenceTracker
         }
         public void SyncMeetingListWithEWSCalendar()
         {
-            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
+            //ExchangeService service = CreateExchangeService();
 
-            service.Credentials = new WebCredentials(emailAddress, emailPassword);
-
-            try
-            {
-                // Previous saved connection string
-                service.Url = new Uri(emailURL);
-            }
-            catch
-            {
-                try
-                {
-                    // Use autodiscover service to relocate url
-                    service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback);
-                    //Save new url TODO
-                    emailURL = service.Url.AbsoluteUri;
-
-                }
-                catch (Exception ex)
-                {
-                    // Return an error that the url could not be found (In Now Div)
-                    nowMeetingNameLabel.Text = ex.ToString();
-                    nowMeetingNameLabel.Font.Size = 10;
-                }
-            }
-
-            if (service.Url != null)
+            if (_service.Url != null)
             {
                 // Initialize values for the start and end times, and the number of appointments to retrieve.
                 DateTime startDate = DateTime.Now;
@@ -417,7 +398,7 @@ namespace ConferenceTracker
                 const int NUM_APPTS = 4;
 
                 // Initialize the calendar folder object with only the folder ID. 
-                CalendarFolder calendar = CalendarFolder.Bind(service, WellKnownFolderName.Calendar, new PropertySet());
+                CalendarFolder calendar = CalendarFolder.Bind(_service, WellKnownFolderName.Calendar, new PropertySet());
 
                 // Set the start and end time and number of appointments to retrieve.
                 CalendarView cView = new CalendarView(startDate, endDate, NUM_APPTS);
@@ -502,7 +483,6 @@ namespace ConferenceTracker
                         {
                             // Loop through appointments and add inactivated appointments to inactivated appointments variable
                             foreach (Appointment a in appointments)
-
                             {
                                 if (!a.Id.ToString().Equals(currentMeeting.CalendarID.ToString()))
                                 {
@@ -513,17 +493,21 @@ namespace ConferenceTracker
                                     //Check if current meeting is attached to a EWS Calendar
                                     if (currentMeeting.CalendarID != null)
                                     {
+                                        var appointment = Appointment.Bind(_service, a.Id, new PropertySet(BasePropertySet.FirstClassProperties));
+
                                         // Loop through all the required and optional attendees
-                                        foreach (var ia in a.RequiredAttendees/*.Concat(a.OptionalAttendees)*/)
+                                        foreach (var ia in appointment.RequiredAttendees/*.Concat(a.OptionalAttendees)*/)
                                         {
                                             bool isEmployee = true;
                                             // If invited attendee's email matches an employee's email: find the employee's ID
-                                            var employeeID = db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID);
+                                            var matchingEmployee = db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID).FirstOrDefault();
+                                            //int employeeID = Int32.Parse(db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID).ToString());
 
                                             // If the invited attendee is an employee, add them to the InvitedAttendees list with their employee ID
-                                            if (employeeID != null)
+                                            if (matchingEmployee != null)
                                             {
-                                                currentMeetingInvites.Add(new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = Int32.Parse(employeeID.ToString()) });
+                                                InvitedAttendee invitedAttendee = new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = matchingEmployee };
+                                                currentMeetingInvites.Add(invitedAttendee);
                                             }
                                             // If the employee is a guest, then add them with the guest ID = -1
                                             //TODO fix this
@@ -634,6 +618,38 @@ namespace ConferenceTracker
                 if (appointments == null) { nowInfoBoxDescriptionLabel.Text = "Could not access Exchange Calendar"; }
 
             }
+        }
+
+        private ExchangeService CreateExchangeService()
+        {
+            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
+
+            service.Credentials = new WebCredentials(emailAddress, emailPassword);
+
+            try
+            {
+                // Previous saved connection string
+                service.Url = new Uri(emailURL);
+            }
+            catch
+            {
+                try
+                {
+                    // Use autodiscover service to relocate url
+                    service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback);
+                    //Save new url TODO
+                    emailURL = service.Url.AbsoluteUri;
+
+                }
+                catch (Exception ex)
+                {
+                    // Return an error that the url could not be found (In Now Div)
+                    nowMeetingNameLabel.Text = ex.ToString();
+                    nowMeetingNameLabel.Font.Size = 10;
+                }
+            }
+
+            return service;
         }
 
         public void SyncMeetingListWithMeetingDB()
