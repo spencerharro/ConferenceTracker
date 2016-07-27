@@ -423,7 +423,9 @@ namespace ConferenceTracker
                 CalendarView cView = new CalendarView(startDate, endDate, NUM_APPTS);
 
                 // Limit the properties returned to the appointment's subject, start time, and end time.
-                cView.PropertySet = new PropertySet(AppointmentSchema.Subject, AppointmentSchema.Start, AppointmentSchema.End);
+                cView.PropertySet = new PropertySet(AppointmentSchema.Subject,
+                    AppointmentSchema.Start,
+                    AppointmentSchema.End);
 
                 // Retrieve a collection of appointments by using the calendar view.
                 FindItemsResults<Appointment> appointments = calendar.FindAppointments(cView);
@@ -515,7 +517,6 @@ namespace ConferenceTracker
                                         foreach (var ia in a.RequiredAttendees/*.Concat(a.OptionalAttendees)*/)
                                         {
                                             bool isEmployee = true;
-
                                             // If invited attendee's email matches an employee's email: find the employee's ID
                                             var employeeID = db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID);
 
