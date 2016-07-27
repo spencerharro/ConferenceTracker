@@ -29,7 +29,7 @@ namespace ConferenceTracker
         I2RloginEntities1 db = new I2RloginEntities1();
         //Initialize Conference Room
         Room room = new Room();
-        
+
         //Set Conference Room Status ID - for StatusBoard
         static int conferenceRoomStatusID = 10;  //10 is status for North
 
@@ -41,6 +41,8 @@ namespace ConferenceTracker
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
         static int maxStringLength = 33;
+
+        List<InvitedAttendee> currentMeetingInvites;
 
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
@@ -58,10 +60,10 @@ namespace ConferenceTracker
 
                 //Run Startup Routine
                 RunStartupRoutine();
-                
+
                 //Sync Meeting List with Exchange Calendar
                 SyncMeetingListWithEWSCalendar();
-             }
+            }
         }
         private void RunStartupRoutine()
         {
@@ -115,7 +117,7 @@ namespace ConferenceTracker
                     if (currentMeeting != null)
                     {
                         emp.Remarks = room.RoomName + ((currentMeeting.Name == "Room Available") ? "" : ": " + currentMeeting.Name.ToString());
-                        //Set SB return time
+                        //TODO: Set SB return time
                         //if(emp.ReturnDate == null)
                         //{
                         //    DateTime startTime = DateTime.Parse(currentMeeting.StartTime.ToString());
@@ -191,6 +193,15 @@ namespace ConferenceTracker
             //Find All employees who are not currently attendees in meetings
             var employeesNotCheckedIn = employees.Where(ee => employeesWhoAreAttendees.All(aa => ee.EmployeeID != aa.EmployeeID)).OrderBy(ee => ee.FirstName.ToString());
 
+            //Create a drop down list entry at the top for employees who are required/optional meeting attendees
+            if(currentMeetingInvites != null)
+            {
+                foreach(InvitedAttendee ia in currentMeetingInvites)
+                {
+                    employeeDropDownBox.Items.Add(CreateListItem(ia.Name.ToString(), ia.EmployeeID.ToString()));
+                }
+            }
+
             //Create drop down list entries for each employee not checked in
             foreach (var emp in employeesNotCheckedIn)
             {
@@ -236,10 +247,16 @@ namespace ConferenceTracker
             if (employeeDropDownBox.SelectedIndex != 0 || nameTextBox.Text != "")
             {
                 //Check if selected attendee is guest
-                if (employeeDropDownBox.SelectedIndex == 1 && nameTextBox.Text == "")
+                if ((employeeDropDownBox.SelectedIndex == 1 && nameTextBox.Text == ""))
                 {
                     //Set page controls
                     EnableGuestControls();
+                }
+                //Check if selected attendee is guest who was an invited attendee
+                else if (employeeDropDownBox.SelectedValue.Equals(-1))
+                {
+                    // Add the Attendee based on their suggested guest name (from the invited attendees list)
+                    AddAttendee(CreateAttendee(-1, room.RoomName, DateTime.Now.AddHours(1), employeeDropDownBox.SelectedItem.ToString()));
                 }
                 //Otherwise
                 else if (nameTextBox.Text != "")
@@ -368,7 +385,7 @@ namespace ConferenceTracker
             ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
 
             service.Credentials = new WebCredentials(emailAddress, emailPassword);
-            
+
             try
             {
                 // Previous saved connection string
@@ -382,9 +399,9 @@ namespace ConferenceTracker
                     service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback);
                     //Save new url TODO
                     emailURL = service.Url.AbsoluteUri;
-                   
+
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     // Return an error that the url could not be found (In Now Div)
                     nowMeetingNameLabel.Text = ex.ToString();
@@ -392,7 +409,7 @@ namespace ConferenceTracker
                 }
             }
 
-            if(service.Url != null)
+            if (service.Url != null)
             {
                 // Initialize values for the start and end times, and the number of appointments to retrieve.
                 DateTime startDate = DateTime.Now;
@@ -467,7 +484,7 @@ namespace ConferenceTracker
 
                     // Will store meetings that have not been promoted yet
                     List<Appointment> inactivatedMeetings = new List<Appointment>();
-                    
+
                     //Ensure that appointments from EWS exist
                     if (appointments != null)
                     {
@@ -482,23 +499,53 @@ namespace ConferenceTracker
                         else
                         {
                             // Loop through appointments and add inactivated appointments to inactivated appointments variable
-                            foreach(Appointment a in appointments)
+                            foreach (Appointment a in appointments)
 
                             {
-                                if(!a.Id.ToString().Equals(currentMeeting.CalendarID.ToString()))
+                                if (!a.Id.ToString().Equals(currentMeeting.CalendarID.ToString()))
                                 {
                                     inactivatedMeetings.Add(a);
                                 }
+                                else
+                                {
+                                    //Check if current meeting is attached to a EWS Calendar
+                                    if (currentMeeting.CalendarID != null)
+                                    {
+                                        // Loop through all the required and optional attendees
+                                        foreach (var ia in a.RequiredAttendees/*.Concat(a.OptionalAttendees)*/)
+                                        {
+                                            bool isEmployee = true;
+
+                                            // If invited attendee's email matches an employee's email: find the employee's ID
+                                            var employeeID = db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID);
+
+                                            // If the invited attendee is an employee, add them to the InvitedAttendees list with their employee ID
+                                            if (employeeID != null)
+                                            {
+                                                currentMeetingInvites.Add(new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = Int32.Parse(employeeID.ToString()) });
+                                            }
+                                            // If the employee is a guest, then add them with the guest ID = -1
+                                            //TODO fix this
+                                            else
+                                            {
+                                                currentMeetingInvites.Add(new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = -1 });
+                                            }
+                                        }
+
+
+                                    }
+                                }
                             }
-                            
+
 
                             //If all else fails, just set the next two appointments to the first two in the appointments list.
-                            if(inactivatedMeetings == null)
+                            if (inactivatedMeetings == null)
                             {
                                 inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
                                 inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
                             }
-                                                  
+
+
                         }
                         // Set first/second suggestions based on entries in inactivated meetings variable
                         firstSuggestion = inactivatedMeetings.ElementAt(0);
@@ -584,10 +631,10 @@ namespace ConferenceTracker
 
                 }
                 if (appointments == null) { nowInfoBoxDescriptionLabel.Text = "Could not access Exchange Calendar"; }
-                
+
             }
         }
-      
+
         public void SyncMeetingListWithMeetingDB()
         {
             Meeting currentMeeting = db.Meetings.Where(m => m.Name != "Room Available" && m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
@@ -629,7 +676,7 @@ namespace ConferenceTracker
                 {
                     SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
                 }
-                
+
                 nowInfoBox.Style.Remove("background");
 
                 nowInfoBox.Style.Add("background", "#606060");
@@ -906,8 +953,8 @@ namespace ConferenceTracker
             }
 
         }
-        
-       
+
+
         public void SetNowDiv(string meetingName, string startTime, string endTime, string meetingDescription)
         {
             nowInfoBoxDescriptionLabel.Text = meetingDescription;

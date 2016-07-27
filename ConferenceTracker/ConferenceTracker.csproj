@@ -189,6 +189,7 @@
     <Compile Include="EmployeeStatu.cs">
       <DependentUpon>Model2.tt</DependentUpon>
     </Compile>
+    <Compile Include="InvitedAttendee.cs" />
     <Compile Include="Meeting.cs">
       <DependentUpon>Model2.tt</DependentUpon>
     </Compile>
