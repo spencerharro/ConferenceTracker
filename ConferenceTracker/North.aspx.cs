@@ -516,20 +516,15 @@ namespace ConferenceTracker
                                             // If invited attendee's email matches an employee's email: find the employee's ID
                                             var nonOverlappingEmployee = db.Employees.Where(ee => db.Attendees.All(att => !att.EmployeeID.Equals(ee.EmployeeID))).Select(ee => ee.EmployeeID).FirstOrDefault();
 
-                                            var invitedEmployeeIDs = db.Employees.Where(emp => emp.Email == ia.Address).Select(ee => ee.EmployeeID);
-                                            var employeeNotCheckedInYet = db.Attendees.Where(att => invitedEmployeeIDs.All(iei => iei != att.EmployeeID)).FirstOrDefault();
+                                            var employeesWhoAreInvited = db.Employees.Where(emp => emp.Email == ia.Address);
+                                            var empAttendees = db.Attendees.Where(emp => emp.EmployeeID > 0);
+
+                                            var employeesNotCheckedIn = empAttendees.Where(ea => employeesWhoAreInvited.All(ewai => ewai.EmployeeID != ea.EmployeeID)).Select(emp => emp).FirstOrDefault();
                                             
-                                            //Find a matchign employee that has the same employee email address, and use their ID to compare that ID to people already in the room, and return people not in the room.
-                                            //var matchingEmployee = db.Employees.Where(emp => emp.Email == ia.Address).Where(db.Attendees.Where(att => !att.Name.Equals != Select(emp => emp.EmployeeID).FirstOrDefault();
-
-
-                                            //var matchingEmployee = db.Employees.Where(emp => emp.Email == ia.Address).Where(db.Attendees.Where(att => !att.Name.Equals !=Select(emp => emp.EmployeeID). FirstOrDefault();
-                                            //int employeeID = Int32.Parse(db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID).ToString());
-
                                             // If the invited attendee is an employee, add them to the InvitedAttendees list with their employee ID
-                                            if (employeeNotCheckedInYet != null)
+                                            if (employeesNotCheckedIn != null)
                                             {
-                                                InvitedAttendee invitedAttendee = new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = employeeNotCheckedInYet.EmployeeID };
+                                                InvitedAttendee invitedAttendee = new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = employeesNotCheckedIn.EmployeeID };
                                                 currentMeetingInvites.Add(invitedAttendee);
                                             }
                                             // If the invited attendee is a guest, then add them with the guest ID = -2 and increment this value
