@@ -95,8 +95,6 @@ namespace ConferenceTracker
                 SyncMeetingListWithMeetingDB();
             }
 
-
-            //NEW: CONFERENCE TRACKER 2.0
             //REMOVE ATTENDEES CHECKED OUT ON STATUS BOARD
             SyncStatusForEachEmployee();
 
@@ -246,6 +244,17 @@ namespace ConferenceTracker
         }
         public void checkInButton_Click(object sender, EventArgs e)
         {
+            //TODO: Remove TEST
+            int dropDownIndex = employeeDropDownBox.SelectedIndex;
+            int dropDownValue =0;
+            try
+            {
+                dropDownValue = Int32.Parse(employeeDropDownBox.SelectedValue.ToString());
+            }
+            catch { }
+
+            string dropDownText = employeeDropDownBox.SelectedItem.ToString();
+
             //Create the new attendee
             Attendee newAttendee = new Attendee();
 
@@ -253,16 +262,18 @@ namespace ConferenceTracker
             if (employeeDropDownBox.SelectedIndex != 0 || nameTextBox.Text != "")
             {
                 //Check if selected attendee is guest
-                if ((employeeDropDownBox.SelectedIndex == 1 && nameTextBox.Text == ""))
+                if ((dropDownIndex == 1 && nameTextBox.Text == ""))
                 {
                     //Set page controls
                     EnableGuestControls();
                 }
                 //Check if selected attendee is guest who was an invited attendee
-                else if (employeeDropDownBox.SelectedValue.Equals(-1))
+                else if (dropDownValue < -1)
                 {
                     // Add the Attendee based on their suggested guest name (from the invited attendees list)
-                    AddAttendee(CreateAttendee(-1, room.RoomName, DateTime.Now.AddHours(1), employeeDropDownBox.SelectedItem.ToString()));
+                    AddAttendee(CreateAttendee(-1, room.RoomName, DateTime.Now.AddHours(1), dropDownText));
+
+                    db.SaveChanges();
                 }
                 //Otherwise
                 else if (nameTextBox.Text != "")
@@ -272,10 +283,12 @@ namespace ConferenceTracker
                         DateTime.Now.AddHours(1),   //Default meeting length 1hr
                         nameTextBox.Text.ToString()));
 
+                    db.SaveChanges();
+                    
                     //Set page controls
                     EnableNormalControls();
                 }
-                else if (employeeDropDownBox.SelectedIndex > 1 && Int32.Parse(employeeDropDownBox.SelectedValue) > 0)
+                else if (dropDownIndex > 1 && dropDownValue > 0)
                 {
                     //Find the employee in the Employee database
                     int employeeID = Int32.Parse(employeeDropDownBox.SelectedValue);
@@ -290,12 +303,13 @@ namespace ConferenceTracker
                         room.RoomName,
                         DateTime.Now.AddHours(1),
                         checkingInEmployee.FirstName.ToString() + " " + checkingInEmployee.LastName.ToString()));
+
+                    db.SaveChanges();
                 }
 
             }
             //Update the Attendees list on the webpage
             RunStartupRoutine();
-
 
             //LOAD Meeting List
             SyncMeetingListWithMeetingDB();
@@ -500,20 +514,36 @@ namespace ConferenceTracker
                                         {
                                             bool isEmployee = true;
                                             // If invited attendee's email matches an employee's email: find the employee's ID
-                                            var matchingEmployee = db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID).FirstOrDefault();
+                                            var nonOverlappingEmployee = db.Employees.Where(ee => db.Attendees.All(att => !att.EmployeeID.Equals(ee.EmployeeID))).Select(ee => ee.EmployeeID).FirstOrDefault();
+
+                                            var invitedEmployeeIDs = db.Employees.Where(emp => emp.Email == ia.Address).Select(ee => ee.EmployeeID);
+                                            var employeeNotCheckedInYet = db.Attendees.Where(att => invitedEmployeeIDs.All(iei => iei != att.EmployeeID)).FirstOrDefault();
+                                            
+                                            //Find a matchign employee that has the same employee email address, and use their ID to compare that ID to people already in the room, and return people not in the room.
+                                            //var matchingEmployee = db.Employees.Where(emp => emp.Email == ia.Address).Where(db.Attendees.Where(att => !att.Name.Equals != Select(emp => emp.EmployeeID).FirstOrDefault();
+
+
+                                            //var matchingEmployee = db.Employees.Where(emp => emp.Email == ia.Address).Where(db.Attendees.Where(att => !att.Name.Equals !=Select(emp => emp.EmployeeID). FirstOrDefault();
                                             //int employeeID = Int32.Parse(db.Employees.Where(emp => emp.Email == ia.Address).Select(emp => emp.EmployeeID).ToString());
 
                                             // If the invited attendee is an employee, add them to the InvitedAttendees list with their employee ID
-                                            if (matchingEmployee != null)
+                                            if (employeeNotCheckedInYet != null)
                                             {
-                                                InvitedAttendee invitedAttendee = new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = matchingEmployee };
+                                                InvitedAttendee invitedAttendee = new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = employeeNotCheckedInYet.EmployeeID };
                                                 currentMeetingInvites.Add(invitedAttendee);
                                             }
-                                            // If the employee is a guest, then add them with the guest ID = -1
+                                            // If the invited attendee is a guest, then add them with the guest ID = -2 and increment this value
                                             //TODO fix this
+                                            
                                             else
                                             {
-                                                currentMeetingInvites.Add(new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = -1 });
+                                                int index= -1;
+                                                foreach(char c in ia.Name)
+                                                {
+                                                    index += -(int)c % 32;
+                                                }
+                                                
+                                                currentMeetingInvites.Add(new InvitedAttendee { Name = ia.Name, IsEmployee = isEmployee, EmployeeID = index });
                                             }
                                         }
 
