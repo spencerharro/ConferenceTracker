@@ -202,7 +202,11 @@ namespace ConferenceTracker
             {
                 foreach(InvitedAttendee ia in currentMeetingInvites)
                 {
-                    employeeDropDownBox.Items.Add(CreateListItem(ia.Name.ToString(), ia.EmployeeID.ToString()));
+                    // For the invited guests who have not already checked into the meeting
+                    if (currentMeetingInvites.Where(cmi => employees.All(emp => cmi.EmployeeID != emp.EmployeeID)).OrderBy(cmi => cmi.Name.ToString()) != null)
+                    {
+                        employeeDropDownBox.Items.Add(CreateListItem(ia.Name.ToString(), ia.EmployeeID.ToString()));
+                    }
                 }
             }
 
