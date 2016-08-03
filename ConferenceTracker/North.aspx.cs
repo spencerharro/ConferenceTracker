@@ -505,7 +505,6 @@ namespace ConferenceTracker
                                 foreach(var iatd in invitedAttendeeToDelete)
                                 {
                                     db.InvitedAttendees.Remove(iatd);
-                                    
                                 }
                                 //Save Changes
                                 db.SaveChanges();
@@ -557,7 +556,7 @@ namespace ConferenceTracker
 
                                             // Add the invited guest to the invited attendees list
                                             // And double check that the guest is not the conference room itself
-                                            if (invitedGuest && att.Address != emailURL)
+                                            if (invitedGuest && att.Address != emailAddress)
                                             {
                                                 // Give the guest a unique negative ID
                                                 Random randomInt = new Random();
@@ -566,8 +565,9 @@ namespace ConferenceTracker
                                                 foreach (char c in att.Name)
                                                 {
                                                     index += -(int)c % 32;
-                                                    index += -1 * randomInt.Next(1, 1000);
+                                                    
                                                 }
+                                                index += -1 * randomInt.Next(1, 2000);
                                                 db.InvitedAttendees.Add(new InvitedAttendee()
                                                 {
                                                     EmployeeID = index,
@@ -575,11 +575,12 @@ namespace ConferenceTracker
                                                     Room = room.RoomName,
                                                     MeetingID = appointment.Id.ToString()
                                                 });
+                                                // Save Invited Attendee table changes
+                                                db.SaveChanges();
                                             }
                                         }
                                     }
-                                    // Save Invited Attendee table changes
-                                    db.SaveChanges();
+                                    
                                 }
                             }
                         
@@ -968,12 +969,12 @@ namespace ConferenceTracker
             db.SaveChanges();
 
             EnableNormalControls();
-
-            RunStartupRoutine();
-
+            
             //LOAD Meeting List
             //Exchange Calendar
             SyncMeetingListWithEWSCalendar();
+
+            RunStartupRoutine();
         }
         protected void ActivateNext2MeetingButton_Click(object sender, EventArgs e)
         {
