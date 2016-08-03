@@ -28,7 +28,7 @@ namespace ConferenceTracker
     {
         // -------------------------PAGE SETUP-------------------------------- //
         //Initialize LINQ to Entities Connection
-        I2RloginEntities1 db = new I2RloginEntities1();
+        I2RloginEntities2 db = new I2RloginEntities2();
         //Initialize Conference Room
         Room room = new Room();
 
