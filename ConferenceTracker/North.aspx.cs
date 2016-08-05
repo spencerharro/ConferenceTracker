@@ -593,6 +593,8 @@ namespace ConferenceTracker
                                                     Room = room.RoomName,
                                                     MeetingID = appointment.Id.ToString()
                                                 });
+                                                //TODO: See if needed
+                                                db.SaveChanges();
 
                                             }
 
@@ -621,9 +623,9 @@ namespace ConferenceTracker
                                                 // Save Invited Attendee table changes
                                                 db.SaveChanges();
                                             }
-                                            //TODO: See if needed
-                                            db.SaveChanges();
+                                            
                                         }
+                                        
                                     }
                                     
                                 }
@@ -1062,12 +1064,12 @@ namespace ConferenceTracker
             db.SaveChanges();
 
             EnableNormalControls();
-
-            RunStartupRoutine();
-
-            //LOAD Meeting List
+//LOAD Meeting List
             //Exchange Calendar
             SyncMeetingListWithEWSCalendar();
+            RunStartupRoutine();
+
+            
         }
         public void DeleteCurrentMeeting()
         {
@@ -1090,8 +1092,6 @@ namespace ConferenceTracker
             }
 
         }
-
-
         public void SetNowDiv(string meetingName, string startTime, string endTime, string meetingDescription)
         {
             nowInfoBoxDescriptionLabel.Text = meetingDescription;
