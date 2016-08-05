@@ -16,5 +16,9 @@ namespace ConferenceTracker
     {
         public int RoomID { get; set; }
         public string RoomName { get; set; }
+        public string RoomEmailAddress { get; set; }
+        public string RoomEmailPassword { get; set; }
+        public string RoomEmailboxURL { get; set; }
+        public int RoomStatusID { get; set; }
     }
 }

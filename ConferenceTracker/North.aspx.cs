@@ -26,30 +26,46 @@ namespace ConferenceTracker
     {
         // -------------------------PAGE SETUP-------------------------------- //
         //Initialize LINQ to Entities Connection
-        I2RloginEntities2 db = new I2RloginEntities2();
+        I2RloginEntities3 db = new I2RloginEntities3();
         //Initialize Conference Room
-        Room room = new Room();
+        Room room;
 
-        //Set Conference Room Status ID - for StatusBoard
-        static int conferenceRoomStatusID = 10;  //10 is status for North
-
-        //Microsoft Exchange Web Services Credentials
-        static string emailAddress = "north@i2r.com";
-        static string emailPassword = "Catesuser1";
-        private string emailURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
+        //EWS
         ExchangeService _service;
 
+        //Set midnight tonight time for UI Calendar reference
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
+        //Max string characters displayed in meeting boxes
         static int maxStringLength = 33;
+
+        //Set ConferenceRoomID
+        static int conferenceRoomID = 1;
 
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
-            //Set Conference Room Info
-            room.RoomID = 1;    //North
-            room.RoomName = "North Conference Room";
-            db.SaveChanges();
+            // Find the room in the database
+            room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
+
+            //If room not recognized in database, set it up by hardcoding
+            if(room == null)
+            {
+                Room newRoom = new Room();
+                //Set Conference Room Info
+                newRoom.RoomID = conferenceRoomID;
+                newRoom.RoomName = "North Conference Room";
+                newRoom.RoomStatusID = 10; //North
+                newRoom.RoomEmailAddress = "north@i2r.com";
+                newRoom.RoomEmailPassword = "Catesuser1";
+                newRoom.RoomEmailboxURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
+
+                //Save room in Database
+                db.SaveChanges();
+
+                room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
+            }
+            
 
             //Create Exchange Service
             _service = CreateExchangeService();
@@ -137,13 +153,13 @@ namespace ConferenceTracker
                     }
 
                     //Check if the Status ID shows the emp out of the room, and if the emp is an an attendee
-                    if (emp.StatusID != conferenceRoomStatusID && StatusBoardAttendee.EmployeeID != 0)
+                    if (emp.StatusID != room.RoomStatusID && StatusBoardAttendee.EmployeeID != 0)
                     {
                         //Remove emp from attendees
                         RemoveAttendeeByEmployeeID(StatusBoardAttendee.EmployeeID);
                     }
                     //Check if the Status ID shows the emp in the room, and if the emp is not already an attendee
-                    else if (emp.StatusID == conferenceRoomStatusID && StatusBoardAttendee.EmployeeID == 0 && emp.ReturnDate != null)
+                    else if (emp.StatusID == room.RoomStatusID && StatusBoardAttendee.EmployeeID == 0 && emp.ReturnDate != null)
                     {
                         AddAttendee(CreateAttendee(emp.EmployeeID,
                             room.RoomName.ToString(),
@@ -206,7 +222,7 @@ namespace ConferenceTracker
             {
                 foreach(InvitedAttendee ia in currentMeetingInvites)
                 {
-                    employeeDropDownBox.Items.Add(CreateListItem(ia.Name.ToString(), ia.EmployeeID.ToString()));
+                    employeeDropDownBox.Items.Add(CreateListItemWithColor(ia.Name.ToString(), ia.EmployeeID.ToString(),"green"));
                 }
             }
 
@@ -236,6 +252,16 @@ namespace ConferenceTracker
             ListItem li = new ListItem();
             li.Text = text;
             li.Value = value;
+            return li;
+        }
+        public ListItem CreateListItemWithColor(string text, string value, string color)
+        {
+
+            //Create the list item based on input text/value
+            ListItem li = new ListItem();
+            li.Text = text;
+            li.Value = value;
+            li.Attributes.Add("style", "color:" + color);
             return li;
         }
         public void ClearAttendeesList()
@@ -304,7 +330,7 @@ namespace ConferenceTracker
                     var checkingInEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
 
                     //Modify Status Board entries
-                    checkingInEmployee.StatusID = conferenceRoomStatusID;
+                    checkingInEmployee.StatusID = room.RoomStatusID;
                     checkingInEmployee.Remarks = room.RoomName.ToString() + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": " + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
 
                     //Convert the employee to an attendee
@@ -563,7 +589,7 @@ namespace ConferenceTracker
 
                                             // Add the invited guest to the invited attendees list
                                             // And double check that the guest is not the conference room itself
-                                            if (invitedGuest && att.Address != emailAddress)
+                                            if (invitedGuest && att.Address != room.RoomEmailAddress)
                                             {
                                                 // Give the guest a unique negative ID
                                                 Random randomInt = new Random();
@@ -695,21 +721,22 @@ namespace ConferenceTracker
         {
             ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
 
-            service.Credentials = new WebCredentials(emailAddress, emailPassword);
+            service.Credentials = new WebCredentials(room.RoomEmailAddress, room.RoomEmailPassword);
 
             try
             {
                 // Previous saved connection string
-                service.Url = new Uri(emailURL);
+                service.Url = new Uri(room.RoomEmailboxURL);
             }
             catch
             {
                 try
                 {
                     // Use autodiscover service to relocate url
-                    service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback);
+                    service.AutodiscoverUrl(room.RoomEmailAddress, RedirectionUrlValidationCallback);
                     //Save new url TODO
-                    emailURL = service.Url.AbsoluteUri;
+                    room.RoomEmailAddress = service.Url.AbsoluteUri;
+                    db.SaveChanges();
 
                 }
                 catch (Exception ex)

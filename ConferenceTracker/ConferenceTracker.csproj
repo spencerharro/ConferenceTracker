@@ -144,6 +144,16 @@
       <DependentUpon>Model3.edmx</DependentUpon>
       <LastGenOutput>Model3.cs</LastGenOutput>
     </Content>
+    <Content Include="Model4.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>Model4.edmx</DependentUpon>
+      <LastGenOutput>Model4.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="Model4.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>Model4.edmx</DependentUpon>
+      <LastGenOutput>Model4.cs</LastGenOutput>
+    </Content>
     <Content Include="packages.config" />
     <EntityDeploy Include="Model1.edmx">
       <Generator>EntityModelCodeGenerator</Generator>
@@ -165,6 +175,13 @@
     </EntityDeploy>
     <Content Include="Model3.edmx.diagram">
       <DependentUpon>Model3.edmx</DependentUpon>
+    </Content>
+    <EntityDeploy Include="Model4.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>Model4.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <Content Include="Model4.edmx.diagram">
+      <DependentUpon>Model4.edmx</DependentUpon>
     </Content>
     <None Include="Properties\PublishProfiles\test.pubxml" />
     <None Include="Web.Debug.config">
@@ -192,28 +209,28 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Attendee.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="ConfRoom.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Division.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Employee.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="EmployeeStatu.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="InvitedAttendee.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Meeting.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Misc.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Model1.Context.cs">
       <AutoGen>True</AutoGen>
@@ -260,8 +277,23 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Model3.edmx</DependentUpon>
     </Compile>
+    <Compile Include="Model4.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Model4.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Model4.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Model4.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Model4.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Model4.edmx</DependentUpon>
+    </Compile>
     <Compile Include="Newsletter.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="North.aspx.cs">
       <DependentUpon>North.aspx</DependentUpon>
@@ -271,35 +303,35 @@
       <DependentUpon>North.aspx</DependentUpon>
     </Compile>
     <Compile Include="OfficeNumber.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Room.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SchCalendar.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SelectEmployees_BottomHalf_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SelectEmployees_BottomThird_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SelectEmployees_MiddleThird_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SelectEmployees_TopHalf_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SelectEmployees_TopThird_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SlideShow.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="SlideShowImage.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="South.aspx.cs">
       <DependentUpon>South.aspx</DependentUpon>
@@ -309,13 +341,13 @@
       <DependentUpon>South.aspx</DependentUpon>
     </Compile>
     <Compile Include="sp_helpdiagramdefinition_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="sp_helpdiagrams_Result.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="sysdiagram.cs">
-      <DependentUpon>Model3.tt</DependentUpon>
+      <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
     <Compile Include="Training.aspx.cs">
       <DependentUpon>Training.aspx</DependentUpon>

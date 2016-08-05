@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="73971f0dda93416e80166c4f3f3a3d08" Name="Diagram1">
+        <EntityTypeShape EntityType="I2RloginModel3.Attendee" Width="1.5" PointX="0.75" PointY="9.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.ConfRoom" Width="1.5" PointX="5.75" PointY="1" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.Division" Width="1.5" PointX="0.75" PointY="5.5" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.Employee" Width="1.5" PointX="8" PointY="5" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.EmployeeStatu" Width="1.5" PointX="5.75" PointY="6.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.InvitedAttendee" Width="1.5" PointX="2.75" PointY="9.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.Meeting" Width="1.5" PointX="4.75" PointY="9.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.Newsletter" Width="1.5" PointX="3" PointY="4" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.OfficeNumber" Width="1.5" PointX="3" PointY="6.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.Room" Width="1.5" PointX="10.75" PointY="0.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.SchCalendar" Width="1.5" PointX="8" PointY="1" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.SlideShowImage" Width="1.5" PointX="3" PointY="0.875" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.SlideShow" Width="1.5" PointX="0.75" PointY="0.875" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.sysdiagram" Width="1.5" PointX="10.75" PointY="3.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="I2RloginModel3.Misc" Width="1.5" PointX="10.75" PointY="6.75" IsExpanded="true" />
+        <AssociationConnector Association="I2RloginModel3.FK_SchCalendar_ConfRooms" ManuallyRouted="false" />
+        <AssociationConnector Association="I2RloginModel3.FK_Newsletters_Divisions" ManuallyRouted="false" />
+        <AssociationConnector Association="I2RloginModel3.FK_OfficeNumbers_Divisions" ManuallyRouted="false" />
+        <AssociationConnector Association="I2RloginModel3.FK_I2R_Employees_I2R_EmployeeStatus" ManuallyRouted="false" />
+        <AssociationConnector Association="I2RloginModel3.FK_SlideShowImages_SlideShows" ManuallyRouted="false" />
+        <AssociationConnector Association="I2RloginModel3.FK_SlideShows_SlideShows" ManuallyRouted="false" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

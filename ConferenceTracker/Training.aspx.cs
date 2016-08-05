@@ -464,8 +464,6 @@ namespace ConferenceTracker
                         //db.SaveChanges();
                     }
 
-                    List<Appointment> appointmentsNotActivated;
-
                     Appointment firstSuggestion;
                     Appointment secondSuggestion;
 
