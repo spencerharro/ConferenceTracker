@@ -28,39 +28,49 @@ namespace ConferenceTracker
     {
         // -------------------------PAGE SETUP-------------------------------- //
         //Initialize LINQ to Entities Connection
-        I2RloginEntities2 db = new I2RloginEntities2();
+        I2RloginEntities3 db = new I2RloginEntities3();
         //Initialize Conference Room
-        Room room = new Room();
+        Room room;
 
-        //Set Conference Room Status ID - for StatusBoard
-        static int conferenceRoomStatusID = 11;  //11 is status for South
+        //EWS
+        ExchangeService _service;
 
-        //Microsoft Exchange Web Services Credentials
-        static string emailAddress = "south@i2r.com";
-        static string emailPassword = "Catesuser1";
-        private string emailURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
-
-        //Google - Retired in ConferenceTracker 2.1.0
-        ////Google
-        //static string[] Scopes = { CalendarService.Scope.CalendarReadonly, CalendarService.Scope.Calendar };
-        //static string ApplicationName = "Conference Tracker";
-        //static string clientId = "850215639552-7nr5sn2dc5hrn8keilhm4t0cgcn75igu.apps.googleusercontent.com";
-        //static string clientSecret = "bE4zxcyawDCMdla1UzVylJxy";
-        ////ID for the calendar of interest
-        //static string calID = "kupj7mf53rgeu2mbtlhhf49cps@group.calendar.google.com";
-        //Location of the .json credential file for accessing Google's API
-        //static string credfilepath = @"c:\Authentication\client_secret_850215639552-7nr5sn2dc5hrn8keilhm4t0cgcn75igu.apps.googleusercontent.com.json";
-
+        //Set midnight tonight time for UI Calendar reference
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
+        //Max string characters displayed in meeting boxes
         static int maxStringLength = 33;
+
+        //Set ConferenceRoomID
+        static int conferenceRoomID = 2;
+
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
-            //Set Conference Room Info
-            room.RoomID = 2;    //South
-            room.RoomName = "South Conference Room";
-            db.SaveChanges();
+            // Find the room in the database
+            room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
+
+            //If room not recognized in database, set it up by hardcoding
+            if (room == null)
+            {
+                Room newRoom = new Room();
+                //Set Conference Room Info
+                newRoom.RoomID = conferenceRoomID;
+                newRoom.RoomName = "South Conference Room";
+                newRoom.RoomStatusID = 11; //North
+                newRoom.RoomEmailAddress = "south@i2r.com";
+                newRoom.RoomEmailPassword = "Catesuser1";
+                newRoom.RoomEmailboxURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
+
+                //Save room in Database
+                db.SaveChanges();
+
+                room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
+            }
+
+
+            //Create Exchange Service
+            _service = CreateExchangeService();
 
             //Run through startup routine if first page view
             if (!IsPostBack)
@@ -68,19 +78,15 @@ namespace ConferenceTracker
                 //Set page controls
                 EnableNormalControls();
 
-                //Run Startup Routine
-                RunStartupRoutine();
-
-                //Sync Meeting List with Google Calendar
-                //SyncMeetingListWithGoogleCalendar();
-
                 //Sync Meeting List with Exchange Calendar
                 SyncMeetingListWithEWSCalendar();
 
-                //May comment out
-                //db.SaveChanges();
-
+                //Run Startup Routine
+                RunStartupRoutine();
             }
+
+            //Set Attendees Box description text
+            AttendeesBoxDescriptionLabel.Text = "Attendees in " + room.RoomName.ToString();
         }
         private void RunStartupRoutine()
         {
@@ -97,23 +103,15 @@ namespace ConferenceTracker
             employeeDropDownBox.Items.Insert(0, new ListItem("Select Name", null));
             employeeDropDownBox.Items.Insert(1, new ListItem("Guest", null));
 
-            //DISABLED: CONFERENCE TRACKER 2.0
-            //REMOVE OVERDUE ATTENDEES
-            //RemoveOverdueAttendees();
-
-            //Sync Meeting List with Google Calendar (if no events in db)
+            //Sync Meeting List with Exchange Calendar (if no events in db)
             if (db.Meetings.Where(m => m.RoomID == room.RoomID) == null || db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID) == null)
             {
-                //Google Calendar
-                //SyncMeetingListWithGoogleCalendar();
                 //Exchange Calendar
                 SyncMeetingListWithEWSCalendar();
                 //Meeting Database Table
                 SyncMeetingListWithMeetingDB();
             }
 
-
-            //NEW: CONFERENCE TRACKER 2.0
             //REMOVE ATTENDEES CHECKED OUT ON STATUS BOARD
             SyncStatusForEachEmployee();
 
@@ -140,26 +138,34 @@ namespace ConferenceTracker
                     if (currentMeeting != null)
                     {
                         emp.Remarks = room.RoomName + ((currentMeeting.Name == "Room Available") ? "" : ": " + currentMeeting.Name.ToString());
+
                         //Set SB return time
-                        //if(emp.ReturnDate == null)
-                        //{
-                        //    DateTime startTime = DateTime.Parse(currentMeeting.StartTime.ToString());
-                        //    DateTime endTime = DateTime.Parse(currentMeeting.EndTime.ToString());
-                        //    TimeSpan duration = endTime.Subtract(startTime);
-                        //    DateTime nowTime = DateTime.Now;
-                        //    emp.ReturnDate = nowTime + duration;
-                        //}
+                        if (emp.ReturnDate == null)
+                        {
+                            try
+                            {
+                                DateTime startTime = DateTime.Parse(currentMeeting.StartTime.ToString());
+                                DateTime endTime = DateTime.Parse(currentMeeting.EndTime.ToString());
+                                TimeSpan duration = endTime.Subtract(startTime);
+                                DateTime nowTime = DateTime.Now;
+                                emp.ReturnDate = nowTime + duration;
+                            }
+                            catch
+                            {
+
+                            }
+                        }
 
                     }
 
                     //Check if the Status ID shows the emp out of the room, and if the emp is an an attendee
-                    if (emp.StatusID != conferenceRoomStatusID && StatusBoardAttendee.EmployeeID != 0)
+                    if (emp.StatusID != room.RoomStatusID && StatusBoardAttendee.EmployeeID != 0)
                     {
                         //Remove emp from attendees
                         RemoveAttendeeByEmployeeID(StatusBoardAttendee.EmployeeID);
                     }
                     //Check if the Status ID shows the emp in the room, and if the emp is not already an attendee
-                    else if (emp.StatusID == conferenceRoomStatusID && StatusBoardAttendee.EmployeeID == 0 && emp.ReturnDate != null)
+                    else if (emp.StatusID == room.RoomStatusID && StatusBoardAttendee.EmployeeID == 0 && emp.ReturnDate != null)
                     {
                         AddAttendee(CreateAttendee(emp.EmployeeID,
                             room.RoomName.ToString(),
@@ -189,7 +195,6 @@ namespace ConferenceTracker
         public void AddAttendee(Attendee a)
         {
             db.Attendees.Add(a);
-            //db.SaveChanges();
         }
         public void RemoveOverdueAttendees()
         {
@@ -208,7 +213,6 @@ namespace ConferenceTracker
         }
         public void PopulateEmployeesList()
         {
-
             //Query for all attendees who are employees
             List<Attendee> employeesWhoAreAttendees = db.Attendees.Where(ea => ea.EmployeeID > 0).ToList();
             //Query for all employees in database
@@ -216,6 +220,17 @@ namespace ConferenceTracker
 
             //Find All employees who are not currently attendees in meetings
             var employeesNotCheckedIn = employees.Where(ee => employeesWhoAreAttendees.All(aa => ee.EmployeeID != aa.EmployeeID)).OrderBy(ee => ee.FirstName.ToString());
+
+            //Create a drop down list entry at the top for employees who are required/optional meeting attendees
+            var currentMeetingInvites = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
+
+            if (currentMeetingInvites != null)
+            {
+                foreach (InvitedAttendee ia in currentMeetingInvites)
+                {
+                    employeeDropDownBox.Items.Add(CreateListItemWithColor(ia.Name.ToString(), ia.EmployeeID.ToString(), "green"));
+                }
+            }
 
             //Create drop down list entries for each employee not checked in
             foreach (var emp in employeesNotCheckedIn)
@@ -245,6 +260,16 @@ namespace ConferenceTracker
             li.Value = value;
             return li;
         }
+        public ListItem CreateListItemWithColor(string text, string value, string color)
+        {
+
+            //Create the list item based on input text/value
+            ListItem li = new ListItem();
+            li.Text = text;
+            li.Value = value;
+            li.Attributes.Add("style", "color:" + color);
+            return li;
+        }
         public void ClearAttendeesList()
         {
             inMeetingRadioButtonList.Items.Clear();
@@ -255,6 +280,17 @@ namespace ConferenceTracker
         }
         public void checkInButton_Click(object sender, EventArgs e)
         {
+            //TODO: Remove TEST
+            int dropDownIndex = employeeDropDownBox.SelectedIndex;
+            int dropDownValue = 0;
+            try
+            {
+                dropDownValue = Int32.Parse(employeeDropDownBox.SelectedValue.ToString());
+            }
+            catch { }
+
+            string dropDownText = employeeDropDownBox.SelectedItem.ToString();
+
             //Create the new attendee
             Attendee newAttendee = new Attendee();
 
@@ -262,10 +298,23 @@ namespace ConferenceTracker
             if (employeeDropDownBox.SelectedIndex != 0 || nameTextBox.Text != "")
             {
                 //Check if selected attendee is guest
-                if (employeeDropDownBox.SelectedIndex == 1 && nameTextBox.Text == "")
+                if ((dropDownIndex == 1 && nameTextBox.Text == ""))
                 {
                     //Set page controls
                     EnableGuestControls();
+                }
+                //Check if selected attendee is guest who was an invited attendee
+                else if (dropDownValue <= -2)
+                {
+                    // Add the Attendee based on their suggested guest name (from the invited attendees list)
+                    AddAttendee(CreateAttendee(-1, room.RoomName, DateTime.Now.AddHours(1), dropDownText));
+                    // Find the correct invited attendee to delete based on the ID of the attendee checking in
+                    var invitedAttendeeToRemove = db.InvitedAttendees.Where(att => att.EmployeeID == dropDownValue && att.Room == room.RoomName).FirstOrDefault();
+                    if (invitedAttendeeToRemove != null)
+                    {
+                        db.InvitedAttendees.Remove(invitedAttendeeToRemove);
+                        db.SaveChanges();
+                    }
                 }
                 //Otherwise
                 else if (nameTextBox.Text != "")
@@ -275,19 +324,19 @@ namespace ConferenceTracker
                         DateTime.Now.AddHours(1),   //Default meeting length 1hr
                         nameTextBox.Text.ToString()));
 
+                    db.SaveChanges();
+
                     //Set page controls
                     EnableNormalControls();
                 }
-                else if (employeeDropDownBox.SelectedIndex > 1)
+                else if (dropDownIndex > 1 && dropDownValue > 0)
                 {
                     //Find the employee in the Employee database
                     int employeeID = Int32.Parse(employeeDropDownBox.SelectedValue);
                     var checkingInEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
 
                     //Modify Status Board entries
-                    checkingInEmployee.StatusID = conferenceRoomStatusID;
-                    //DateTime timeOut = DateTime.Now.Add(TimeSpan.Parse(durationDropDownBox.SelectedValue));
-                    //checkingInEmployee.ReturnDate = timeOut; //Change Status Board Return Time
+                    checkingInEmployee.StatusID = room.RoomStatusID;
                     checkingInEmployee.Remarks = room.RoomName.ToString() + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": " + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
 
                     //Convert the employee to an attendee
@@ -295,12 +344,20 @@ namespace ConferenceTracker
                         room.RoomName,
                         DateTime.Now.AddHours(1),
                         checkingInEmployee.FirstName.ToString() + " " + checkingInEmployee.LastName.ToString()));
+
+                    // See if the attendee was an invited employee
+                    var invitedAttendeeToRemove = db.InvitedAttendees.Where(att => att.EmployeeID == dropDownValue && att.Room == room.RoomName).FirstOrDefault();
+                    if (invitedAttendeeToRemove != null)
+                    {
+                        db.InvitedAttendees.Remove(invitedAttendeeToRemove);
+                    }
+
+                    db.SaveChanges();
                 }
 
             }
             //Update the Attendees list on the webpage
             RunStartupRoutine();
-
 
             //LOAD Meeting List
             SyncMeetingListWithMeetingDB();
@@ -316,11 +373,11 @@ namespace ConferenceTracker
                 //Save changes to database
                 db.SaveChanges();
             }
+
             //Set page controls
             EnableNormalControls();
 
             RunStartupRoutine();
-
 
             //LOAD Meeting List
             SyncMeetingListWithMeetingDB();
@@ -343,9 +400,6 @@ namespace ConferenceTracker
             ResetCurrentMeeting();
 
             //LOAD Meeting List
-            //Google Calendar
-            //SyncMeetingListWithGoogleCalendar();
-
             //Exchange Calendar
             SyncMeetingListWithEWSCalendar();
 
@@ -354,8 +408,6 @@ namespace ConferenceTracker
         {
             //Find the employee based on the employee ID
             var checkingOutEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
-            //Set Status Board properties to basic in office Setup
-            //UpdateEmployeeOnStatusBoard(DateTime.Parse(""), null, 1);
             checkingOutEmployee.ReturnDate = null;
             checkingOutEmployee.Remarks = null;
             checkingOutEmployee.StatusID = 1;     //Employee is in office again
@@ -365,9 +417,6 @@ namespace ConferenceTracker
 
             //Remove attendee
             db.Attendees.Remove(checkingOutAttendee);
-
-            //Commit changes to database
-            //db.SaveChanges();
         }
         public void UpdateEmployeeOnStatusBoard(DateTime returnDate, string remarks, int statusID)
         {
@@ -397,43 +446,13 @@ namespace ConferenceTracker
 
                 //Remove attendee
                 db.Attendees.Remove(checkingOutAttendee);
-
-                //Commit changes to database
-                //db.SaveChanges();
             }
         }
         public void SyncMeetingListWithEWSCalendar()
         {
-            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
+            //ExchangeService service = CreateExchangeService();
 
-            service.Credentials = new WebCredentials(emailAddress, emailPassword);
-
-
-            try
-            {
-                // Previous saved connection string
-                service.Url = new Uri(emailURL);
-            }
-            catch
-            {
-                try
-                {
-                    // Use autodiscover service to relocate url
-                    service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback);
-                    //Save new url TODO
-                    emailURL = service.Url.AbsoluteUri;
-
-                }
-                catch (Exception ex)
-                {
-                    // Return an error that the url could not be found (In Now Div)
-                    nowMeetingNameLabel.Text = ex.ToString();
-                    nowMeetingNameLabel.Font.Size = 10;
-
-                }
-            }
-
-            if (service.Url != null)
+            if (_service.Url != null)
             {
                 // Initialize values for the start and end times, and the number of appointments to retrieve.
                 DateTime startDate = DateTime.Now;
@@ -441,13 +460,15 @@ namespace ConferenceTracker
                 const int NUM_APPTS = 4;
 
                 // Initialize the calendar folder object with only the folder ID. 
-                CalendarFolder calendar = CalendarFolder.Bind(service, WellKnownFolderName.Calendar, new PropertySet());
+                CalendarFolder calendar = CalendarFolder.Bind(_service, WellKnownFolderName.Calendar, new PropertySet());
 
                 // Set the start and end time and number of appointments to retrieve.
                 CalendarView cView = new CalendarView(startDate, endDate, NUM_APPTS);
 
                 // Limit the properties returned to the appointment's subject, start time, and end time.
-                cView.PropertySet = new PropertySet(AppointmentSchema.Subject, AppointmentSchema.Start, AppointmentSchema.End);
+                cView.PropertySet = new PropertySet(AppointmentSchema.Subject,
+                    AppointmentSchema.Start,
+                    AppointmentSchema.End);
 
                 // Retrieve a collection of appointments by using the calendar view.
                 FindItemsResults<Appointment> appointments = calendar.FindAppointments(cView);
@@ -498,12 +519,6 @@ namespace ConferenceTracker
                         {
                             SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
                         }
-                        //Turn the current meeting box red since it is in meeting
-                        //    background: #003b00;
-                        //background:
-                        //    -webkit - gradient(linear, left top, left bottom, from(#fed403), to(#c9a800));
-                        //background: -moz - linear - gradient(top, #003b00, #005500);
-                        //background: linear - gradient(to bottom, #003b00, #005500);
                         nowInfoBox.Style.Remove("background");
 
                         nowInfoBox.Style.Add("background", "#606060");
@@ -511,29 +526,129 @@ namespace ConferenceTracker
                         AddNewMeetingButton.Visible = false;
                         ClearCurrentMeetingButton.Visible = true;
                     }
+
+                    // Will store meetings that have not been promoted yet
+                    List<Appointment> inactivatedMeetings = new List<Appointment>();
+
+                    //Ensure that appointments from EWS exist
                     if (appointments != null)
                     {
+                        //If room is available, suggestions should be first two entries in appointments
                         if (roomAvailable)
                         {
                             //Set the suggestions
-                            firstSuggestion = appointments.Items.Cast<Appointment>().ElementAt(0);
-                            secondSuggestion = appointments.Items.Cast<Appointment>().ElementAt(1);
+                            inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
+                            inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
                         }
+                        //If room is occupied, suggestions should be appointments NOT listed in appointments
                         else
                         {
-                            //TODO:  Need to fix how appointments that are not activated are determined.
-                            ////Find events besides current event
-                            //appointmentsNotActivated = (appointments.Items.Where(ap => !TruncateMyLongString(ap.Id.ToString(),50).Equals(currentMeeting.CalendarID.ToString())).Select(ev => ev)).ToList();
+                            //Guests previously invited to meeting
+                            var invitedAttendeeToDelete = db.InvitedAttendees.Where(iatd => iatd.Room == room.RoomName).Select(iatd => iatd);
+                            //if the meeting id is the same, delete those attendees
+                            if (invitedAttendeeToDelete != null)
+                            {
+                                foreach (var iatd in invitedAttendeeToDelete)
+                                {
+                                    db.InvitedAttendees.Remove(iatd);
+                                }
+                                //Save Changes
+                                db.SaveChanges();
 
-                            ////Set the suggestions
-                            //firstSuggestion = appointmentsNotActivated.Cast<Appointment>().ElementAt(0);
-                            //secondSuggestion = appointmentsNotActivated.Cast<Appointment>().ElementAt(1);
-                            //Temporary
-                            firstSuggestion = appointments.Items.Cast<Appointment>().ElementAt(0);
-                            secondSuggestion = appointments.Items.Cast<Appointment>().ElementAt(1);
+                            }
+
+                            // Loop through appointments and add inactivated appointments to inactivated appointments variable
+                            foreach (Appointment a in appointments)
+                            {
+                                if (!a.Id.ToString().Equals(currentMeeting.CalendarID.ToString()))
+                                {
+                                    inactivatedMeetings.Add(a);
+                                }
+                                // TODO: If the appointment is set as the ACTIVE MEETING go ahead and save the attendees who are assigned to the meeting
+                                else
+                                {
+                                    //Check if current meeting is attached to a EWS Calendar
+                                    if (currentMeeting.CalendarID != null)
+                                    {
+                                        // Get current EWS appointment and see its detailed properties
+                                        var appointment = Appointment.Bind(_service, a.Id, new PropertySet(BasePropertySet.FirstClassProperties));
+
+                                        // Loop through the appointment attendee invites and add them to the InvitedAttendees data table
+                                        foreach (var att in appointment.RequiredAttendees/*.Concat(appointment.OptionalAttendees)*/)
+                                        {
+                                            //See if an overlapping employee exists
+                                            var invitedEmployee = db.Employees.Where(emp => emp.Email == att.Address).FirstOrDefault();
+
+                                            //Find invited attendees
+                                            bool invitedGuest = true;
+
+                                            // Add the invited employees to the invited attendees list
+                                            if (invitedEmployee != null)
+                                            {
+                                                // This is not a guest
+                                                invitedGuest = false;
+
+                                                // Add the employee to the invited attendees list
+                                                db.InvitedAttendees.Add(new InvitedAttendee()
+                                                {
+                                                    EmployeeID = invitedEmployee.EmployeeID,
+                                                    Name = invitedEmployee.FirstName + " " + invitedEmployee.LastName,
+                                                    Room = room.RoomName,
+                                                    MeetingID = appointment.Id.ToString()
+                                                });
+                                                //TODO: See if needed
+                                                db.SaveChanges();
+
+                                            }
+
+
+                                            // Add the invited guest to the invited attendees list
+                                            // And double check that the guest is not the conference room itself
+                                            if (invitedGuest && att.Address != room.RoomEmailAddress)
+                                            {
+                                                // Give the guest a unique negative ID
+                                                Random randomInt = new Random();
+                                                int index = 0;
+
+                                                foreach (char c in att.Name)
+                                                {
+                                                    index += -(int)c % 32;
+
+                                                }
+                                                index += -1 * randomInt.Next(1, 2000);
+                                                db.InvitedAttendees.Add(new InvitedAttendee()
+                                                {
+                                                    EmployeeID = index,
+                                                    Name = att.Name,
+                                                    Room = room.RoomName,
+                                                    MeetingID = appointment.Id.ToString()
+                                                });
+                                                // Save Invited Attendee table changes
+                                                db.SaveChanges();
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+                            }
+
+
+
+
+                            //If all else fails, just set the next two appointments to the first two in the appointments list.
+                            if (inactivatedMeetings == null)
+                            {
+                                inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
+                                inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
+                            }
+
+
                         }
-
-
+                        // Set first/second suggestions based on entries in inactivated meetings variable
+                        firstSuggestion = inactivatedMeetings.ElementAt(0);
+                        secondSuggestion = inactivatedMeetings.ElementAt(1);
                         //Suggest the first meeting, adjusting for it's time
                         if (firstSuggestion.Start < midnightTonight && firstSuggestion != null)
                         {
@@ -585,7 +700,7 @@ namespace ConferenceTracker
                                 Name = TruncateMyLongString(firstSuggestion.Subject, 50),
                                 StartTime = firstSuggestion.Start,
                                 EndTime = firstSuggestion.End,
-                                CalendarID = TruncateMyLongString(firstSuggestion.Id.ToString(), 50),
+                                CalendarID = firstSuggestion.Id.ToString(),
                                 RoomID = room.RoomID
                             });
 
@@ -598,7 +713,7 @@ namespace ConferenceTracker
                                 Name = TruncateMyLongString(secondSuggestion.Subject, 50),
                                 StartTime = secondSuggestion.Start,
                                 EndTime = secondSuggestion.End,
-                                CalendarID = TruncateMyLongString(secondSuggestion.Id.ToString(), 50),
+                                CalendarID = secondSuggestion.Id.ToString(),
                                 RoomID = room.RoomID
                             });
                             //db.SaveChanges();
@@ -618,191 +733,40 @@ namespace ConferenceTracker
 
             }
         }
-        //public void SyncMeetingListWithGoogleCalendar()
-        //{
-        //    Events googleCalendarEvents = null;
-        //    //Try to access 
-        //    try
-        //    {
-        //        googleCalendarEvents = GetEvents(OpenCalendar(), 10);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        nowMeetingNameLabel.Text = e.ToString();
-        //    }
-        //    if (googleCalendarEvents != null)
-        //    {
-        //        Meeting currentMeeting = db.Meetings.Where(m => m.Name != "Room Available" && m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
 
-        //        //Doesn't work
-        //        if (db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault() == null)
-        //        {
-        //            db.Meetings.Add(new Meeting { MeetingID = 1, CalendarID = "", Name = "Room Available", StartTime = null, EndTime = null, RoomID = room.RoomID });
-        //            //db.SaveChanges();
-        //        }
+        private ExchangeService CreateExchangeService()
+        {
+            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
 
-        //        List<Event> eventsNotActivated;
+            service.Credentials = new WebCredentials(room.RoomEmailAddress, room.RoomEmailPassword);
 
-        //        Event firstSuggestion;
-        //        Event secondSuggestion;
+            try
+            {
+                // Previous saved connection string
+                service.Url = new Uri(room.RoomEmailboxURL);
+            }
+            catch
+            {
+                try
+                {
+                    // Use autodiscover service to relocate url
+                    service.AutodiscoverUrl(room.RoomEmailAddress, RedirectionUrlValidationCallback);
+                    //Save new url TODO
+                    room.RoomEmailAddress = service.Url.AbsoluteUri;
+                    db.SaveChanges();
 
-        //        //True if available, False if not available
-        //        bool roomAvailable = true;
+                }
+                catch (Exception ex)
+                {
+                    // Return an error that the url could not be found (In Now Div)
+                    nowMeetingNameLabel.Text = ex.ToString();
+                    nowMeetingNameLabel.Font.Size = 10;
+                }
+            }
 
-        //        if (currentMeeting != null) { roomAvailable = false; }
+            return service;
+        }
 
-        //        if (roomAvailable)
-        //        {
-        //            //Show the room is available
-        //            SetNowDiv("Room Available", "", "", (room.RoomName + ":"));
-        //            AddNewMeetingButton.Visible = true;
-        //            ClearCurrentMeetingButton.Visible = false;
-
-        //            nowInfoBox.Style.Remove("background");
-
-        //            nowInfoBox.Style.Add("background", "#007600");
-        //            nowInfoBox.Style.Add("background", "-webkit-gradient-webkit-gradient(linear, left top, left bottom, from(#fed403), to(#c9a800))");
-        //            nowInfoBox.Style.Add("background", "-moz-linear-gradient(top, #007600, #006f00))");
-        //            nowInfoBox.Style.Add("background", "linear-gradient(to bottom, #007600, #006f00)");
-
-        //        }
-        //        else
-        //        {
-        //            //Indicate the current Meeting
-        //            SetNowDiv(currentMeeting.Name,
-        //                currentMeeting.StartTime.Value.ToShortTimeString(),
-        //                currentMeeting.EndTime.Value.ToShortTimeString(),
-        //                (room.RoomName + ":"));
-        //            if (currentMeeting.CalendarID.ToString() == "")
-        //            {
-        //                SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
-        //            }
-        //            //Turn the current meeting box red since it is in meeting
-        //            //    background: #003b00;
-        //            //background:
-        //            //    -webkit - gradient(linear, left top, left bottom, from(#fed403), to(#c9a800));
-        //            //background: -moz - linear - gradient(top, #003b00, #005500);
-        //            //background: linear - gradient(to bottom, #003b00, #005500);
-        //            nowInfoBox.Style.Remove("background");
-
-        //            nowInfoBox.Style.Add("background", "#606060");
-
-        //            AddNewMeetingButton.Visible = false;
-        //            ClearCurrentMeetingButton.Visible = true;
-        //        }
-        //        if (googleCalendarEvents != null)
-        //        {
-        //            if (roomAvailable)
-        //            {
-        //                //Set the suggestions
-        //                firstSuggestion = googleCalendarEvents.Items.Cast<Event>().ElementAt(0);
-        //                secondSuggestion = googleCalendarEvents.Items.Cast<Event>().ElementAt(1);
-        //            }
-        //            else
-        //            {
-        //                //Find events besides current event
-        //                eventsNotActivated = (googleCalendarEvents.Items.Where(ev => !ev.Id.Equals(currentMeeting.CalendarID)).Select(ev => ev)).ToList();
-
-        //                //Set the suggestions
-        //                firstSuggestion = eventsNotActivated.Cast<Event>().ElementAt(0);
-        //                secondSuggestion = eventsNotActivated.Cast<Event>().ElementAt(1);
-        //            }
-
-
-        //            //Suggest the first meeting, adjusting for it's time
-        //            if (firstSuggestion.Start.DateTime < midnightTonight && firstSuggestion != null)
-        //            {
-        //                //Indicate the next meeting suggestion
-        //                SetNext1Div(TruncateMyLongString(firstSuggestion.Summary, maxStringLength),
-        //                    firstSuggestion.Start.DateTime.Value.ToShortTimeString(),
-        //                    firstSuggestion.End.DateTime.Value.ToShortTimeString(),
-        //                    "Next:");
-
-        //            }
-        //            else
-        //            {
-        //                //Suggest a meeting for another day
-        //                SetNext1Div(TruncateMyLongString(firstSuggestion.Summary, maxStringLength),
-        //                    firstSuggestion.Start.DateTime.Value.ToShortTimeString(),
-        //                    firstSuggestion.End.DateTime.Value.ToShortTimeString(),
-        //                    "-- " + firstSuggestion.Start.DateTime.Value.DayOfWeek.ToString() + " --");
-        //            }
-
-        //            //Suggest the second meeting, adjusting for it's time
-        //            if (secondSuggestion.Start.DateTime < midnightTonight && firstSuggestion != null)
-        //            {
-        //                //Indicate the next meeting suggestion
-        //                SetNext2Div(TruncateMyLongString(secondSuggestion.Summary, maxStringLength),
-        //                    secondSuggestion.Start.DateTime.Value.ToShortTimeString(),
-        //                    secondSuggestion.End.DateTime.Value.ToShortTimeString(),
-        //                    "Next:");
-        //            }
-        //            else
-        //            {
-        //                //Suggest a meeting for another day
-        //                SetNext2Div(TruncateMyLongString(secondSuggestion.Summary, maxStringLength),
-        //                    secondSuggestion.Start.DateTime.Value.ToShortTimeString(),
-        //                    secondSuggestion.End.DateTime.Value.ToShortTimeString(),
-        //                    "-- " + secondSuggestion.Start.DateTime.Value.DayOfWeek.ToString() + " --");
-        //            }
-        //            foreach (var meeting in db.Meetings.Where(m => m.MeetingID != 1 && m.RoomID == room.RoomID))
-        //            {
-        //                RemoveMeetingFromDB(meeting);
-        //            }
-        //            //Add the first/second suggestions to the meetings table
-        //            //Input the meeting to the meetings table under meeting #2
-
-        //            try
-        //            {
-        //                AddMeetingToDB(new Meeting
-        //                {
-        //                    MeetingID = 2,
-        //                    Name = TruncateMyLongString(firstSuggestion.Summary, 50),
-        //                    StartTime = firstSuggestion.Start.DateTime,
-        //                    EndTime = firstSuggestion.End.DateTime,
-        //                    CalendarID = TruncateMyLongString(firstSuggestion.Id, 50),
-        //                    RoomID = room.RoomID
-        //                });
-
-        //                // db.SaveChanges();
-
-        //                //Input the meeting to the meetings table under meeting #3
-        //                AddMeetingToDB(new Meeting
-        //                {
-        //                    MeetingID = 3,
-        //                    Name = TruncateMyLongString(secondSuggestion.Summary, 50),
-        //                    StartTime = secondSuggestion.Start.DateTime,
-        //                    EndTime = secondSuggestion.End.DateTime,
-        //                    CalendarID = TruncateMyLongString(secondSuggestion.Id, 50),
-        //                    RoomID = room.RoomID
-        //                });
-        //                //db.SaveChanges();
-        //                db.SaveChanges();
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                nowMeetingNameLabel.Text = ex.ToString();
-        //                nowMeetingNameLabel.Font.Size = 10;
-
-
-
-        //                //foreach (var validationErrors in ex.EntityValidationErrors)
-        //                //{
-        //                //    foreach (var validationError in validationErrors.ValidationErrors)
-        //                //    {
-        //                //        System.Diagnostics.Trace.TraceInformation("Property: {0} Error: {1}", validationError.PropertyName, validationError.ErrorMessage);
-        //                //    }
-        //                //}
-        //            }
-
-        //        }
-
-
-        //    }
-        //    if (googleCalendarEvents == null) { nowInfoBoxDescriptionLabel.Text = "Could not access google"; }
-
-
-        //}
         public void SyncMeetingListWithMeetingDB()
         {
             Meeting currentMeeting = db.Meetings.Where(m => m.Name != "Room Available" && m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
@@ -844,12 +808,7 @@ namespace ConferenceTracker
                 {
                     SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
                 }
-                //Turn the current meeting box red since it is in meeting
-                //    background: #003b00;
-                //background:
-                //    -webkit - gradient(linear, left top, left bottom, from(#fed403), to(#c9a800));
-                //background: -moz - linear - gradient(top, #003b00, #005500);
-                //background: linear - gradient(to bottom, #003b00, #005500);
+
                 nowInfoBox.Style.Remove("background");
 
                 nowInfoBox.Style.Add("background", "#606060");
@@ -977,9 +936,6 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            //Google Calendar
-            //SyncMeetingListWithGoogleCalendar();
-
             //Exchange Calendar
             SyncMeetingListWithEWSCalendar();
 
@@ -1020,8 +976,6 @@ namespace ConferenceTracker
                 RunStartupRoutine();
 
                 //LOAD Meeting List
-                //Google Calendar
-                //SyncMeetingListWithGoogleCalendar();
                 //Exchange Calendar
                 SyncMeetingListWithEWSCalendar();
             }
@@ -1067,13 +1021,11 @@ namespace ConferenceTracker
 
             EnableNormalControls();
 
-            RunStartupRoutine();
-
             //LOAD Meeting List
-            //Google Calendar
-            //SyncMeetingListWithGoogleCalendar();
             //Exchange Calendar
             SyncMeetingListWithEWSCalendar();
+
+            RunStartupRoutine();
         }
         protected void ActivateNext2MeetingButton_Click(object sender, EventArgs e)
         {
@@ -1115,62 +1067,34 @@ namespace ConferenceTracker
             db.SaveChanges();
 
             EnableNormalControls();
-
-            RunStartupRoutine();
-
             //LOAD Meeting List
-            //Google Calendar
-            //SyncMeetingListWithGoogleCalendar();
             //Exchange Calendar
             SyncMeetingListWithEWSCalendar();
+            RunStartupRoutine();
+
+
         }
         public void DeleteCurrentMeeting()
         {
+            //Remove invited attendees
+            var invitedAttendees = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
             //Remove current meeting
             Meeting meetingToDelete = db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
             if (meetingToDelete != null)
             {
                 db.Meetings.Remove(meetingToDelete);
+                if (invitedAttendees != null)
+                {
+                    foreach (var ia in invitedAttendees)
+                    {
+                        db.InvitedAttendees.Remove(ia);
+                    }
+                }
+
                 db.SaveChanges();
             }
 
         }
-        //public CalendarService OpenCalendar()
-        //{
-
-        //    //THIS WORKS!
-        //    UserCredential credential = GoogleWebAuthorizationBroker.
-        //            AuthorizeAsync(new ClientSecrets { ClientId = clientId, ClientSecret = clientSecret },
-        //            Scopes,
-        //            "user",
-        //            CancellationToken.None,
-        //            new FileDataStore(Server.MapPath("~/App_Data"))).Result;
-
-        //    // Create Google Calendar API service.
-        //    var service = new CalendarService(new BaseClientService.Initializer()
-        //    {
-        //        HttpClientInitializer = credential,
-        //        ApplicationName = ApplicationName,
-        //    });
-
-        //    return service;
-        //}
-        /// <summary>
-        /// Queries Google Calendar using the calendar service.  Finds events desired.
-        /// </summary>
-        /// <param name="service"></param>
-        //public Events GetEvents(CalendarService service, int numberEvents)
-        //{
-        //    // Define parameters of request
-        //    EventsResource.ListRequest request = service.Events.List(calID);
-        //    request.TimeMin = DateTime.Now;
-        //    request.ShowDeleted = false;
-        //    request.SingleEvents = true;
-        //    request.MaxResults = numberEvents;
-        //    request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-
-        //    return request.Execute();
-        //}
         public void SetNowDiv(string meetingName, string startTime, string endTime, string meetingDescription)
         {
             nowInfoBoxDescriptionLabel.Text = meetingDescription;

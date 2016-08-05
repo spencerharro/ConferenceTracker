@@ -2,6 +2,10 @@
 
 <!DOCTYPE html>
 <html>
+    
+
+
+
 <head>
     <meta http-equiv="refresh" content="300">
     
@@ -878,7 +882,8 @@
                 </div>--%>
                 <div class="attendeeZone">
                     <div>
-                        <p class="descriptionText"><strong>Attendees In Training Room:</strong></p>
+                        <p class="descriptionText"><strong>
+                            <asp:Label ID="AttendeesBoxDescriptionLabel" runat="server"></asp:Label></strong></p>
                         <%--This is a listbox that once was used     <asp:ListBox ID="inMeetingListBox" class="listbox" runat="server" DataSourceID="LinqDataSource1" DataTextField="name" DataValueField="id" ></asp:ListBox>--%>
                         <div id="bulletListContainer">
                             <asp:RadioButtonList ID="inMeetingRadioButtonList" runat="server" RepeatColumns="2" Height="300px" Width="965px" AutoPostBack="true" OnSelectedIndexChanged="checkOutButton_Click"></asp:RadioButtonList>
