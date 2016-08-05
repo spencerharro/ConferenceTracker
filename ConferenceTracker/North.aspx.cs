@@ -339,6 +339,13 @@ namespace ConferenceTracker
                         DateTime.Now.AddHours(1),
                         checkingInEmployee.FirstName.ToString() + " " + checkingInEmployee.LastName.ToString()));
 
+                    // See if the attendee was an invited employee
+                    var invitedAttendeeToRemove = db.InvitedAttendees.Where(att => att.EmployeeID == dropDownValue && att.Room == room.RoomName).FirstOrDefault();
+                    if (invitedAttendeeToRemove != null)
+                    {
+                        db.InvitedAttendees.Remove(invitedAttendeeToRemove);
+                    }
+
                     db.SaveChanges();
                 }
 
@@ -611,6 +618,8 @@ namespace ConferenceTracker
                                                 // Save Invited Attendee table changes
                                                 db.SaveChanges();
                                             }
+                                            //TODO: See if needed
+                                            db.SaveChanges();
                                         }
                                     }
                                     
@@ -1059,11 +1068,21 @@ namespace ConferenceTracker
         }
         public void DeleteCurrentMeeting()
         {
+            //Remove invited attendees
+            var invitedAttendees = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
             //Remove current meeting
             Meeting meetingToDelete = db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
             if (meetingToDelete != null)
             {
                 db.Meetings.Remove(meetingToDelete);
+                if (invitedAttendees != null)
+                {
+                    foreach (var ia in invitedAttendees)
+                    {
+                        db.InvitedAttendees.Remove(ia);
+                    }
+                }
+
                 db.SaveChanges();
             }
 
