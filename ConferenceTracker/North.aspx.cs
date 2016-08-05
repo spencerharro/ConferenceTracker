@@ -213,7 +213,10 @@ namespace ConferenceTracker
             //Create drop down list entries for each employee not checked in
             foreach (var emp in employeesNotCheckedIn)
             {
-                employeeDropDownBox.Items.Add(CreateListItem(emp.FirstName.ToString() + " " + emp.LastName.ToString(), emp.EmployeeID.ToString()));
+                string color = "#000080";   //navy blue
+                employeeDropDownBox.Items.Add(CreateListItemWithColor(emp.FirstName.ToString() + " " + emp.LastName.ToString(),
+                    emp.EmployeeID.ToString(),
+                    color));
             }
         }
         public void PopulateAttendeesList()
@@ -236,6 +239,15 @@ namespace ConferenceTracker
             ListItem li = new ListItem();
             li.Text = text;
             li.Value = value;
+            return li;
+        }
+        public ListItem CreateListItemWithColor(string text, string value, string color)
+        {
+            //Create the list item based on input text/value
+            ListItem li = new ListItem();
+            li.Text = text;
+            li.Value = value;
+            li.Attributes.Add("style", "color=blue");
             return li;
         }
         public void ClearAttendeesList()
@@ -563,7 +575,7 @@ namespace ConferenceTracker
 
                                             // Add the invited guest to the invited attendees list
                                             // And double check that the guest is not the conference room itself
-                                            if (invitedGuest && att.Address != emailAddress)
+                                            if (invitedGuest && att.Address != emailAddress && att.Name != "")
                                             {
                                                 // Give the guest a unique negative ID
                                                 Random randomInt = new Random();
