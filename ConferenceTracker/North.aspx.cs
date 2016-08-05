@@ -82,6 +82,9 @@ namespace ConferenceTracker
                 //Run Startup Routine
                 RunStartupRoutine();
             }
+
+            //Set Attendees Box description text
+            AttendeesBoxDescriptionLabel.Text = "Attendees in " + room.RoomName.ToString();
         }
         private void RunStartupRoutine()
         {
