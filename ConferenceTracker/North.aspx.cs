@@ -123,7 +123,14 @@ namespace ConferenceTracker
         public void SyncStatusForEachEmployee()
         {
             //Loop through employees
-            foreach (var emp in db.Employees)
+            foreach (var emp in db.Employees
+                .Select(ee => new EmployeeDTO
+                {
+                    EmployeeID = ee.EmployeeID,
+                    StatusID = ee.StatusID,
+                    Remarks = ee.Remarks,
+                    ReturnDate = Convert.ToDateTime(ee.ReturnDate)
+                }))
             {
                 var StatusBoardAttendee = db.Attendees
                     .Where(a => a.EmployeeID == emp.EmployeeID && a.Location == room.RoomName)
@@ -166,7 +173,7 @@ namespace ConferenceTracker
                     {
                         AddAttendee(CreateAttendee(emp.EmployeeID,
                             room.RoomName.ToString(),
-                            emp.ReturnDate.Value,
+                            emp.ReturnDate,
                             emp.FirstName + " " + emp.LastName));
                     }
                 }
@@ -213,7 +220,14 @@ namespace ConferenceTracker
             //Query for all attendees who are employees
             List<Attendee> employeesWhoAreAttendees = db.Attendees.Where(ea => ea.EmployeeID > 0).ToList();
             //Query for all employees in database
-            List<Employee> employees = db.Employees.Where(ee => (ee.Division == "Fab Shop" || ee.Division == "Office")).ToList();
+            List<EmployeeDTO> employees = db.Employees
+                .Where(ee => (ee.Division == "Fab Shop" || ee.Division == "Office"))
+                .Select(emp => new EmployeeDTO
+                {
+                    EmployeeID = emp.EmployeeID,
+                    FirstName = emp.FirstName,
+                    LastName = emp.LastName })
+                    .ToList();
 
             //Find All employees who are not currently attendees in meetings
             var employeesNotCheckedIn = employees.Where(ee => employeesWhoAreAttendees.All(aa => ee.EmployeeID != aa.EmployeeID)).OrderBy(ee => ee.FirstName.ToString());
@@ -330,11 +344,23 @@ namespace ConferenceTracker
                 {
                     //Find the employee in the Employee database
                     int employeeID = Int32.Parse(employeeDropDownBox.SelectedValue);
-                    var checkingInEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
+                    var checkingInEmployee = db.Employees
+                        .Where(ee => ee.EmployeeID == employeeID)
+                        .Select(ee => new EmployeeDTO {
+                            EmployeeID = ee.EmployeeID,
+                            StatusID = ee.StatusID,
+                            Remarks = ee.Remarks,
+                            ReturnDate = Convert.ToDateTime(ee.ReturnDate.ToString()),
+                            FirstName = ee.FirstName,
+                            LastName = ee.LastName
+                        })
+                        .FirstOrDefault();
 
                     //Modify Status Board entries
                     checkingInEmployee.StatusID = room.RoomStatusID;
-                    checkingInEmployee.Remarks = room.RoomName.ToString() + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": " + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
+                    checkingInEmployee.Remarks = room.RoomName.ToString()
+                        + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": " 
+                        + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
 
                     //Convert the employee to an attendee
                     AddAttendee(CreateAttendee(checkingInEmployee.EmployeeID,
@@ -404,9 +430,19 @@ namespace ConferenceTracker
         public void RemoveAttendeeByEmployeeID(int employeeID)
         {
             //Find the employee based on the employee ID
-            var checkingOutEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
-            checkingOutEmployee.ReturnDate = null;
-            checkingOutEmployee.Remarks = null;
+            var checkingOutEmployee = db.Employees
+                .Where(ee => ee.EmployeeID == employeeID)
+                .Select(ee => new EmployeeDTO
+            {
+                EmployeeID = ee.EmployeeID,
+                StatusID = ee.StatusID,
+                Remarks = ee.Remarks,
+                ReturnDate = Convert.ToDateTime(ee.ReturnDate.ToString())
+                })
+                .FirstOrDefault();
+
+            checkingOutEmployee.ReturnDate = DateTime.Parse("");
+            checkingOutEmployee.Remarks = "";
             checkingOutEmployee.StatusID = 1;     //Employee is in office again
 
             //Find the attendee by comparing employee ids
@@ -433,10 +469,18 @@ namespace ConferenceTracker
                 if (checkingOutAttendee.EmployeeID != int.Parse("-1"))
                 {
                     //Find the employee based on the attendee name
-                    var checkingOutEmployee = db.Employees.Where(ee => ee.EmployeeID == checkingOutAttendee.EmployeeID).FirstOrDefault();
+                    var checkingOutEmployee = db.Employees
+                        .Where(ee => ee.EmployeeID == checkingOutAttendee.EmployeeID)
+                        .Select(ee => new EmployeeDTO
+                        {
+                            StatusID = ee.StatusID,
+                            Remarks = ee.Remarks,
+                            ReturnDate = DateTime.Parse(ee.ReturnDate.ToString())
+                        })
+                        .FirstOrDefault();
 
                     //Set Status Board properties to basic in office Setup
-                    checkingOutEmployee.ReturnDate = null;
+                    checkingOutEmployee.ReturnDate = DateTime.Parse("");
                     checkingOutEmployee.Remarks = null;
                     checkingOutEmployee.StatusID = 1;     //Employee is in office again
                 }
@@ -574,7 +618,15 @@ namespace ConferenceTracker
                                         foreach (var att in appointment.RequiredAttendees/*.Concat(appointment.OptionalAttendees)*/)
                                         {
                                             //See if an overlapping employee exists
-                                            var invitedEmployee = db.Employees.Where(emp => emp.Email == att.Address).FirstOrDefault();
+                                            var invitedEmployee = db.Employees
+                                                .Where(emp => emp.Email == att.Address)
+                                                .Select(ee => new EmployeeDTO
+                                                {
+                                                    EmployeeID = ee.EmployeeID,
+                                                    FirstName = ee.FirstName,
+                                                    LastName = ee.LastName
+                                                })
+                                                .FirstOrDefault();
 
                                             //Find invited attendees
                                             bool invitedGuest = true;
