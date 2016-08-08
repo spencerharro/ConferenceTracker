@@ -394,7 +394,7 @@ namespace ConferenceTracker
             }
             db.SaveChanges();
 
-            //Set page controls//
+            //Set page controls
             EnableNormalControls();
 
             RunStartupRoutine();
