@@ -169,7 +169,7 @@ namespace ConferenceTracker
                     {
                         AddAttendee(CreateAttendee(emp.EmployeeID,
                             room.RoomName.ToString(),
-                            emp.ReturnDate.Value,
+                            Convert.ToDateTime(emp.ReturnDate),
                             emp.FirstName + " " + emp.LastName));
                     }
                 }
@@ -216,21 +216,12 @@ namespace ConferenceTracker
             //Query for all attendees who are employees
             List<Attendee> employeesWhoAreAttendees = db.Attendees.Where(ea => ea.EmployeeID > 0).ToList();
             //Query for all employees in database
-            List<Employee> employees = db.Employees.Where(ee => (ee.Division == "Fab Shop" || ee.Division == "Office")).ToList();
+            List<Employee> employees = db.Employees
+                .Where(ee => (ee.Division == "Fab Shop" || ee.Division == "Office"))
+                .ToList();
 
             //Find All employees who are not currently attendees in meetings
             var employeesNotCheckedIn = employees.Where(ee => employeesWhoAreAttendees.All(aa => ee.EmployeeID != aa.EmployeeID)).OrderBy(ee => ee.FirstName.ToString());
-
-            //Create a drop down list entry at the top for employees who are required/optional meeting attendees
-            var currentMeetingInvites = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
-
-            if (currentMeetingInvites != null)
-            {
-                foreach (InvitedAttendee ia in currentMeetingInvites)
-                {
-                    employeeDropDownBox.Items.Add(CreateListItemWithColor(ia.Name.ToString(), ia.EmployeeID.ToString(), "green"));
-                }
-            }
 
             //Create drop down list entries for each employee not checked in
             foreach (var emp in employeesNotCheckedIn)
@@ -333,11 +324,15 @@ namespace ConferenceTracker
                 {
                     //Find the employee in the Employee database
                     int employeeID = Int32.Parse(employeeDropDownBox.SelectedValue);
-                    var checkingInEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
+                    var checkingInEmployee = db.Employees
+                        .Where(ee => ee.EmployeeID == employeeID)
+                        .FirstOrDefault();
 
                     //Modify Status Board entries
                     checkingInEmployee.StatusID = room.RoomStatusID;
-                    checkingInEmployee.Remarks = room.RoomName.ToString() + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": " + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
+                    checkingInEmployee.Remarks = room.RoomName.ToString()
+                        + (nowMeetingNameLabel.Text == "Room Available" ? "" : ": "
+                        + nowMeetingNameLabel.Text.ToString());  //Change Status Board Remarks
 
                     //Convert the employee to an attendee
                     AddAttendee(CreateAttendee(checkingInEmployee.EmployeeID,
@@ -400,14 +395,17 @@ namespace ConferenceTracker
             ResetCurrentMeeting();
 
             //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+            //Local Database of Meetings
+            SyncMeetingListWithMeetingDB();
 
         }
         public void RemoveAttendeeByEmployeeID(int employeeID)
         {
             //Find the employee based on the employee ID
-            var checkingOutEmployee = db.Employees.Where(ee => ee.EmployeeID == employeeID).FirstOrDefault();
+            var checkingOutEmployee = db.Employees
+                .Where(ee => ee.EmployeeID == employeeID)
+                .FirstOrDefault();
+
             checkingOutEmployee.ReturnDate = null;
             checkingOutEmployee.Remarks = null;
             checkingOutEmployee.StatusID = 1;     //Employee is in office again
@@ -436,7 +434,9 @@ namespace ConferenceTracker
                 if (checkingOutAttendee.EmployeeID != int.Parse("-1"))
                 {
                     //Find the employee based on the attendee name
-                    var checkingOutEmployee = db.Employees.Where(ee => ee.EmployeeID == checkingOutAttendee.EmployeeID).FirstOrDefault();
+                    var checkingOutEmployee = db.Employees
+                        .Where(ee => ee.EmployeeID == checkingOutAttendee.EmployeeID)
+                        .FirstOrDefault();
 
                     //Set Status Board properties to basic in office Setup
                     checkingOutEmployee.ReturnDate = null;
@@ -564,74 +564,7 @@ namespace ConferenceTracker
                                 {
                                     inactivatedMeetings.Add(a);
                                 }
-                                // TODO: If the appointment is set as the ACTIVE MEETING go ahead and save the attendees who are assigned to the meeting
-                                else
-                                {
-                                    //Check if current meeting is attached to a EWS Calendar
-                                    if (currentMeeting.CalendarID != null)
-                                    {
-                                        // Get current EWS appointment and see its detailed properties
-                                        var appointment = Appointment.Bind(_service, a.Id, new PropertySet(BasePropertySet.FirstClassProperties));
 
-                                        // Loop through the appointment attendee invites and add them to the InvitedAttendees data table
-                                        foreach (var att in appointment.RequiredAttendees/*.Concat(appointment.OptionalAttendees)*/)
-                                        {
-                                            //See if an overlapping employee exists
-                                            var invitedEmployee = db.Employees.Where(emp => emp.Email == att.Address).FirstOrDefault();
-
-                                            //Find invited attendees
-                                            bool invitedGuest = true;
-
-                                            // Add the invited employees to the invited attendees list
-                                            if (invitedEmployee != null)
-                                            {
-                                                // This is not a guest
-                                                invitedGuest = false;
-
-                                                // Add the employee to the invited attendees list
-                                                db.InvitedAttendees.Add(new InvitedAttendee()
-                                                {
-                                                    EmployeeID = invitedEmployee.EmployeeID,
-                                                    Name = invitedEmployee.FirstName + " " + invitedEmployee.LastName,
-                                                    Room = room.RoomName,
-                                                    MeetingID = appointment.Id.ToString()
-                                                });
-                                                //TODO: See if needed
-                                                db.SaveChanges();
-
-                                            }
-
-
-                                            // Add the invited guest to the invited attendees list
-                                            // And double check that the guest is not the conference room itself
-                                            if (invitedGuest && att.Address != room.RoomEmailAddress)
-                                            {
-                                                // Give the guest a unique negative ID
-                                                Random randomInt = new Random();
-                                                int index = 0;
-
-                                                foreach (char c in att.Name)
-                                                {
-                                                    index += -(int)c % 32;
-
-                                                }
-                                                index += -1 * randomInt.Next(1, 2000);
-                                                db.InvitedAttendees.Add(new InvitedAttendee()
-                                                {
-                                                    EmployeeID = index,
-                                                    Name = att.Name,
-                                                    Room = room.RoomName,
-                                                    MeetingID = appointment.Id.ToString()
-                                                });
-                                                // Save Invited Attendee table changes
-                                                db.SaveChanges();
-                                            }
-
-                                        }
-
-                                    }
-
-                                }
                             }
 
 
@@ -936,8 +869,8 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+            //Local Meeting Database
+            SyncMeetingListWithMeetingDB();
 
             AddNewMeetingButton.Visible = true;
             ClearCurrentMeetingButton.Visible = false;
@@ -976,8 +909,8 @@ namespace ConferenceTracker
                 RunStartupRoutine();
 
                 //LOAD Meeting List
-                //Exchange Calendar
-                SyncMeetingListWithEWSCalendar();
+                //Load local meetign Database
+                SyncMeetingListWithMeetingDB();
             }
         }
         protected void ActivateNext1MeetingButton_Click(object sender, EventArgs e)
@@ -1021,9 +954,7 @@ namespace ConferenceTracker
 
             EnableNormalControls();
 
-            //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+            SyncMeetingListWithMeetingDB();
 
             RunStartupRoutine();
         }
@@ -1067,9 +998,9 @@ namespace ConferenceTracker
             db.SaveChanges();
 
             EnableNormalControls();
-            //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+
+            SyncMeetingListWithMeetingDB();
+
             RunStartupRoutine();
 
 
@@ -1211,6 +1142,15 @@ namespace ConferenceTracker
                 result = true;
             }
             return result;
+        }
+
+        protected void refreshButton_Click(object sender, EventArgs e)
+        {
+            //Sync the current meeting database with EWS
+            SyncMeetingListWithEWSCalendar();
+
+            //Then Sync meetings in meeting DB
+            SyncMeetingListWithMeetingDB();
         }
     }
 }
