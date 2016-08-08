@@ -220,17 +220,6 @@ namespace ConferenceTracker
             //Find All employees who are not currently attendees in meetings
             var employeesNotCheckedIn = employees.Where(ee => employeesWhoAreAttendees.All(aa => ee.EmployeeID != aa.EmployeeID)).OrderBy(ee => ee.FirstName.ToString());
 
-            //Create a drop down list entry at the top for employees who are required/optional meeting attendees
-            var currentMeetingInvites = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
-
-            if(currentMeetingInvites != null)
-            {
-                foreach(InvitedAttendee ia in currentMeetingInvites)
-                {
-                    employeeDropDownBox.Items.Add(CreateListItemWithColor(ia.Name.ToString(), ia.EmployeeID.ToString(),"green"));
-                }
-            }
-
             //Create drop down list entries for each employee not checked in
             foreach (var emp in employeesNotCheckedIn)
             {
@@ -572,76 +561,7 @@ namespace ConferenceTracker
                                 {
                                     inactivatedMeetings.Add(a);
                                 }
-                                // TODO: If the appointment is set as the ACTIVE MEETING go ahead and save the attendees who are assigned to the meeting
-                                else
-                                {
-                                    //Check if current meeting is attached to a EWS Calendar
-                                    if (currentMeeting.CalendarID != null)
-                                    {
-                                        // Get current EWS appointment and see its detailed properties
-                                        var appointment = Appointment.Bind(_service, a.Id, new PropertySet(BasePropertySet.FirstClassProperties));
-
-                                        // Loop through the appointment attendee invites and add them to the InvitedAttendees data table
-                                        foreach (var att in appointment.RequiredAttendees/*.Concat(appointment.OptionalAttendees)*/)
-                                        {
-                                            //See if an overlapping employee exists
-                                            var invitedEmployee = db.Employees
-                                                .Where(emp => emp.Email == att.Address)
-                                                .FirstOrDefault();
-
-                                            //Find invited attendees
-                                            bool invitedGuest = true;
-
-                                            // Add the invited employees to the invited attendees list
-                                            if (invitedEmployee != null)
-                                            {
-                                                // This is not a guest
-                                                invitedGuest = false;
-
-                                                // Add the employee to the invited attendees list
-                                                db.InvitedAttendees.Add(new InvitedAttendee()
-                                                {
-                                                    EmployeeID = invitedEmployee.EmployeeID,
-                                                    Name = invitedEmployee.FirstName + " " + invitedEmployee.LastName,
-                                                    Room = room.RoomName,
-                                                    MeetingID = appointment.Id.ToString()
-                                                });
-                                                //TODO: See if needed
-                                                db.SaveChanges();
-
-                                            }
-
-
-                                            // Add the invited guest to the invited attendees list
-                                            // And double check that the guest is not the conference room itself
-                                            if (invitedGuest && att.Address != room.RoomEmailAddress)
-                                            {
-                                                // Give the guest a unique negative ID
-                                                Random randomInt = new Random();
-                                                int index = 0;
-
-                                                foreach (char c in att.Name)
-                                                {
-                                                    index += -(int)c % 32;
-                                                    
-                                                }
-                                                index += -1 * randomInt.Next(1, 2000);
-                                                db.InvitedAttendees.Add(new InvitedAttendee()
-                                                {
-                                                    EmployeeID = index,
-                                                    Name = att.Name,
-                                                    Room = room.RoomName,
-                                                    MeetingID = appointment.Id.ToString()
-                                                });
-                                                // Save Invited Attendee table changes
-                                                db.SaveChanges();
-                                            }
-                                            
-                                        }
-                                        
-                                    }
-                                    
-                                }
+                                
                             }
                         
                     
