@@ -454,7 +454,7 @@ namespace ConferenceTracker
                 // Initialize values for the start and end times, and the number of appointments to retrieve.
                 DateTime startDate = DateTime.Now;
                 DateTime endDate = startDate.AddYears(1);
-                const int NUM_APPTS = 4;
+                const int NUM_APPTS = 6;
 
                 // Initialize the calendar folder object with only the folder ID. 
                 CalendarFolder calendar = CalendarFolder.Bind(_service, WellKnownFolderName.Calendar, new PropertySet());
@@ -619,34 +619,28 @@ namespace ConferenceTracker
                         {
                             RemoveMeetingFromDB(meeting);
                         }
-                        //Add the first/second suggestions to the meetings table
+                        //Add the inactivated meeting suggestions to the meetings table
                         //Input the meeting to the meetings table under meeting #2
 
                         try
                         {
-                            AddMeetingToDB(new Meeting
+                            //Meeting ID index (counter)
+                            int meetingID = 1;
+                            foreach(var ia in inactivatedMeetings)
                             {
-                                MeetingID = 2,
-                                Name = TruncateMyLongString(firstSuggestion.Subject, 50),
-                                StartTime = firstSuggestion.Start,
-                                EndTime = firstSuggestion.End,
-                                CalendarID = firstSuggestion.Id.ToString(),
-                                RoomID = room.RoomID
-                            });
-
-                            // db.SaveChanges();
-
-                            //Input the meeting to the meetings table under meeting #3
-                            AddMeetingToDB(new Meeting
-                            {
-                                MeetingID = 3,
-                                Name = TruncateMyLongString(secondSuggestion.Subject, 50),
-                                StartTime = secondSuggestion.Start,
-                                EndTime = secondSuggestion.End,
-                                CalendarID = secondSuggestion.Id.ToString(),
-                                RoomID = room.RoomID
-                            });
-                            //db.SaveChanges();
+                                AddMeetingToDB(new Meeting
+                                {
+                                    MeetingID = meetingID,
+                                    Name = TruncateMyLongString(ia.Subject, 50),
+                                    StartTime = ia.Start,
+                                    EndTime = ia.End,
+                                    CalendarID = ia.Id.ToString(),
+                                    RoomID = room.RoomID
+                                });
+                                //Increment Meeting ID
+                                meetingID += 1;
+                            }
+                            
                             db.SaveChanges();
                         }
                         catch (Exception ex)
@@ -704,6 +698,7 @@ namespace ConferenceTracker
             Meeting firstSuggestion;
             Meeting secondSuggestion;
 
+
             //True if available, False if not available
             bool roomAvailable = true;
 
@@ -747,9 +742,33 @@ namespace ConferenceTracker
                 ClearCurrentMeetingButton.Visible = true;
             }
 
+            List<Meeting> allMeetings = new List<Meeting>();
+            List<Meeting> inactivatedMeetings = new List<Meeting>();
 
-            firstSuggestion = db.Meetings.Where(m => m.MeetingID == 2 && m.RoomID == room.RoomID).FirstOrDefault();
-            secondSuggestion = db.Meetings.Where(m => m.MeetingID == 3 && m.RoomID == room.RoomID).FirstOrDefault();
+            allMeetings = db.Meetings.Where(m => m.RoomID == room.RoomID).ToList();
+
+            if (allMeetings != null) {
+                foreach(var m in allMeetings)
+                {
+                    if (!m.CalendarID.ToString().Equals(currentMeeting.CalendarID.ToString())){
+                        inactivatedMeetings.Add(m);
+                    }
+                }
+            }else
+            {
+                try
+                {
+                    SyncMeetingListWithEWSCalendar();
+                    allMeetings = db.Meetings.Where(m => m.RoomID == room.RoomID).ToList();
+                }
+                catch
+                {
+                    // Do nothing
+                }
+            }
+            
+            firstSuggestion = inactivatedMeetings.ElementAt(0);
+            secondSuggestion = inactivatedMeetings.ElementAt(1);
 
             if (firstSuggestion != null && secondSuggestion != null)
             {
@@ -802,7 +821,7 @@ namespace ConferenceTracker
                     Name = firstSuggestion.Name,
                     StartTime = firstSuggestion.StartTime,
                     EndTime = firstSuggestion.EndTime,
-                    CalendarID = "",
+                    CalendarID = firstSuggestion.CalendarID,
                     RoomID = room.RoomID
                 });
 
@@ -815,7 +834,7 @@ namespace ConferenceTracker
                     Name = secondSuggestion.Name,
                     StartTime = secondSuggestion.StartTime,
                     EndTime = secondSuggestion.EndTime,
-                    CalendarID = "",
+                    CalendarID = secondSuggestion.CalendarID,
                     RoomID = room.RoomID
                 });
                 // TODO Had this commented out
