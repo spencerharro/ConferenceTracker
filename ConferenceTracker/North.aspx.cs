@@ -1140,5 +1140,14 @@ namespace ConferenceTracker
             }
             return result;
         }
+
+        protected void refreshButton_Click(object sender, EventArgs e)
+        {
+            //Sync the current meeting database with EWS
+            SyncMeetingListWithEWSCalendar();
+
+            //Then Sync meetings in meeting DB
+            SyncMeetingListWithMeetingDB();
+        }
     }
 }
