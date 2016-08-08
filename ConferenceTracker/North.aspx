@@ -855,7 +855,7 @@
                 </div>--%>
                
                 
-                <asp:Button ID="refreshButton" runat="server" />
+                <asp:Button ID="refreshButton" runat="server" OnClick="refreshButton_Click" />
                 <asp:Button ID="clearAllButton" runat="server" OnClick="clearAllButton_Click" />
 
             </div>
