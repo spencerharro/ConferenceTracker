@@ -403,8 +403,8 @@ namespace ConferenceTracker
             ResetCurrentMeeting();
 
             //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+            //Local Database of Meetings
+            SyncMeetingListWithMeetingDB();
 
         }
         public void RemoveAttendeeByEmployeeID(int employeeID)
@@ -946,8 +946,8 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+            //Local Meeting Database
+            SyncMeetingListWithMeetingDB();
 
             AddNewMeetingButton.Visible = true;
             ClearCurrentMeetingButton.Visible = false;
@@ -986,8 +986,8 @@ namespace ConferenceTracker
                 RunStartupRoutine();
 
                 //LOAD Meeting List
-                //Exchange Calendar
-                SyncMeetingListWithEWSCalendar();
+                //Load local meetign Database
+                SyncMeetingListWithMeetingDB();
             }
         }
         protected void ActivateNext1MeetingButton_Click(object sender, EventArgs e)
@@ -1030,10 +1030,8 @@ namespace ConferenceTracker
             db.SaveChanges();
 
             EnableNormalControls();
-            
-            //LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+
+            SyncMeetingListWithMeetingDB();
 
             RunStartupRoutine();
         }
@@ -1077,9 +1075,9 @@ namespace ConferenceTracker
             db.SaveChanges();
 
             EnableNormalControls();
-//LOAD Meeting List
-            //Exchange Calendar
-            SyncMeetingListWithEWSCalendar();
+
+            SyncMeetingListWithMeetingDB();
+
             RunStartupRoutine();
 
             
