@@ -964,7 +964,7 @@ namespace ConferenceTracker
             }
             else
             {
-                //Enter the new meeting into the meeting database under item 1
+                //Enter the new meeting into the meeting database under item 1//
                 Meeting newMeeting = new Meeting();
                 newMeeting.Name = TruncateMyLongString(meetingNameTextbox.Text, 50);
                 newMeeting.MeetingID = 1;
