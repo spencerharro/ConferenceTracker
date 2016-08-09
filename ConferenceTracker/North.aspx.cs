@@ -709,7 +709,7 @@ namespace ConferenceTracker
             else
             {
                 // Error message
-                SetNext1Div("No Suggestions Available.  Tap Refresh.", "", "", "");
+                SetNext1Div("Refresh Suggestions", "", "", "");
             }
 
             // If a second suggestion exists
@@ -736,7 +736,7 @@ namespace ConferenceTracker
             // If no second suggestion exists
             else
             {
-                SetNext2Div("No Suggestions Available.  Tap Refresh.", "", "", "");
+                SetNext2Div("Refresh Suggestions", "", "", "");
             }
             
         }
