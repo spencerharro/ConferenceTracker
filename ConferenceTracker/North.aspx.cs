@@ -70,10 +70,10 @@ namespace ConferenceTracker
                 EnableNormalControls();
                 
                 //Sync Meeting Database with Exchange Calendar
-                SyncMeetingDatabaseWithEWSCalendar();
+                GetExchangeWebServicesAppointments();
 
                 //Sync Meetings Displayed with Meeting Database
-                SyncMeetingsDisplayedWithDatabase();
+                SyncMeetingSuggestionsInDatabase();
                 
                 //Run Startup Routine
                 RunStartupRoutine();
@@ -101,9 +101,9 @@ namespace ConferenceTracker
             if (db.Meetings.Where(m => m.RoomID == room.RoomID) == null || db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID) == null)
             {
                 //Exchange Calendar
-                SyncMeetingDatabaseWithEWSCalendar();
+                GetExchangeWebServicesAppointments();
                 //Meeting Database Table
-                SyncMeetingsDisplayedWithDatabase();
+                SyncMeetingSuggestionsInDatabase();
             }
 
             //REMOVE ATTENDEES CHECKED OUT ON STATUS BOARD
@@ -348,7 +348,7 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
         }
         protected void checkOutButton_Click(object sender, EventArgs e)
         {
@@ -368,7 +368,7 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
         }
         protected void clearAllButton_Click(object sender, EventArgs e)
         {
@@ -389,7 +389,7 @@ namespace ConferenceTracker
 
             //LOAD Meeting List
             //Local Database of Meetings
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
 
         }
         public void RemoveAttendeeByEmployeeID(int employeeID)
@@ -441,7 +441,7 @@ namespace ConferenceTracker
                 db.Attendees.Remove(checkingOutAttendee);
             }
         }
-        public void SyncMeetingDatabaseWithEWSCalendar()
+        public void GetExchangeWebServicesAppointments()
         {
             ExchangeService _service = CreateExchangeService();
 
@@ -568,7 +568,7 @@ namespace ConferenceTracker
 
             return service;
         }
-        public void SyncMeetingsDisplayedWithDatabase()
+        public void SyncMeetingSuggestionsInDatabase()
         {
             // Find the current meeting
             Meeting currentMeeting = db.Meetings.Where(m=>m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
@@ -594,7 +594,7 @@ namespace ConferenceTracker
                     db.SaveChanges();
 
                     //Update Suggestions list with EWS calendar
-                    SyncMeetingDatabaseWithEWSCalendar();
+                    GetExchangeWebServicesAppointments();
 
                 }catch(Exception ex)
                 {
@@ -775,7 +775,7 @@ namespace ConferenceTracker
 
             //LOAD Meeting List
             //Local Meeting Database
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
 
             AddNewMeetingButton.Visible = true;
             ClearCurrentMeetingButton.Visible = false;
@@ -815,7 +815,7 @@ namespace ConferenceTracker
 
                 //LOAD Meeting List
                 //Load local meetign Database
-                SyncMeetingsDisplayedWithDatabase();
+                SyncMeetingSuggestionsInDatabase();
             }
         }
         protected void ActivateNext1MeetingButton_Click(object sender, EventArgs e)
@@ -866,13 +866,13 @@ namespace ConferenceTracker
 
             EnableNormalControls();
 
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
 
             // Automatically update calendar if no suggestions available
             if(db.Meetings.Where(m=>m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
-                SyncMeetingDatabaseWithEWSCalendar();
-                SyncMeetingsDisplayedWithDatabase();
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
             }
 
             RunStartupRoutine();
@@ -923,13 +923,13 @@ namespace ConferenceTracker
 
             EnableNormalControls();
 
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
 
             // Automatically update calendar if no suggestions available
             if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
-                SyncMeetingDatabaseWithEWSCalendar();
-                SyncMeetingsDisplayedWithDatabase();
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
             }
 
             RunStartupRoutine();
@@ -992,7 +992,7 @@ namespace ConferenceTracker
 
 
             //LOAD Meeting List
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
         }
 
         public void EnableNewMeetingControls()
@@ -1070,10 +1070,10 @@ namespace ConferenceTracker
         protected void refreshButton_Click(object sender, EventArgs e)
         {
             //Sync the current meeting database with EWS
-            SyncMeetingDatabaseWithEWSCalendar();
+            GetExchangeWebServicesAppointments();
 
             //Then Sync meetings in meeting DB
-            SyncMeetingsDisplayedWithDatabase();
+            SyncMeetingSuggestionsInDatabase();
         }
     }
 }
