@@ -14,7 +14,7 @@ namespace ConferenceTracker
             var ex = Server.GetLastError();
             if (ex != null)
             {
-                errorLabel.Text = "Error: " + ex.InnerException.Message;
+                errorLabel.Text = "Error: " + ex.InnerException.Message + ex.StackTrace + ex.Source;
             }
             else
             {
