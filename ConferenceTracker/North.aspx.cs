@@ -926,7 +926,7 @@ namespace ConferenceTracker
             SyncMeetingSuggestionsInDatabase();
 
             // Automatically update calendar if no suggestions available
-            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
+            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 1 && m.CalendarID != "").FirstOrDefault() == null)
             {
                 GetExchangeWebServicesAppointments();
                 SyncMeetingSuggestionsInDatabase();
