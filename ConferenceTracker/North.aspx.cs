@@ -869,7 +869,7 @@ namespace ConferenceTracker
             SyncMeetingsDisplayedWithDatabase();
 
             // Automatically update calendar if no suggestions available
-            if(db.Meetings.Where(m=>m.RoomID == room.RoomID && m.MeetingID > 0) == null)
+            if(db.Meetings.Where(m=>m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
                 SyncMeetingDatabaseWithEWSCalendar();
                 SyncMeetingsDisplayedWithDatabase();
@@ -926,7 +926,7 @@ namespace ConferenceTracker
             SyncMeetingsDisplayedWithDatabase();
 
             // Automatically update calendar if no suggestions available
-            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.CalendarID != "") == null)
+            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
                 SyncMeetingDatabaseWithEWSCalendar();
                 SyncMeetingsDisplayedWithDatabase();
