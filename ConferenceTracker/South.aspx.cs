@@ -47,39 +47,17 @@ namespace ConferenceTracker
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
-            // Find the room in the database
-            room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
-
-            //If room not recognized in database, set it up by hardcoding
-            if (room == null)
-            {
-                Room newRoom = new Room();
-                //Set Conference Room Info
-                newRoom.RoomID = conferenceRoomID;
-                newRoom.RoomName = "South Conference Room";
-                newRoom.RoomStatusID = 11; //North
-                newRoom.RoomEmailAddress = "south@i2r.com";
-                newRoom.RoomEmailPassword = "Catesuser1";
-                newRoom.RoomEmailboxURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
-
-                //Save room in Database
-                db.SaveChanges();
-
-                room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
-            }
-
-
-            //Create Exchange Service
-            _service = CreateExchangeService();
-
             //Run through startup routine if first page view
             if (!IsPostBack)
             {
                 //Set page controls
                 EnableNormalControls();
 
-                //Sync Meeting List with Exchange Calendar
-                SyncMeetingListWithEWSCalendar();
+                //Sync Meeting Database with Exchange Calendar
+                GetExchangeWebServicesAppointments();
+
+                //Sync Meetings Displayed with Meeting Database
+                SyncMeetingSuggestionsInDatabase();
 
                 //Run Startup Routine
                 RunStartupRoutine();
@@ -104,12 +82,12 @@ namespace ConferenceTracker
             employeeDropDownBox.Items.Insert(1, new ListItem("Guest", null));
 
             //Sync Meeting List with Exchange Calendar (if no events in db)
-            if (db.Meetings.Where(m => m.RoomID == room.RoomID) == null || db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID) == null)
+            if (db.Meetings.Where(m => m.RoomID == room.RoomID) == null || db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID) == null)
             {
                 //Exchange Calendar
-                SyncMeetingListWithEWSCalendar();
+                GetExchangeWebServicesAppointments();
                 //Meeting Database Table
-                SyncMeetingListWithMeetingDB();
+                SyncMeetingSuggestionsInDatabase();
             }
 
             //REMOVE ATTENDEES CHECKED OUT ON STATUS BOARD
@@ -134,7 +112,7 @@ namespace ConferenceTracker
                 if (StatusBoardAttendee != null)
                 {
                     //Set remarks to room name and current meeting
-                    Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
+                    Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
                     if (currentMeeting != null)
                     {
                         emp.Remarks = room.RoomName + ((currentMeeting.Name == "Room Available") ? "" : ": " + currentMeeting.Name.ToString());
@@ -355,7 +333,7 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            SyncMeetingListWithMeetingDB();
+            SyncMeetingSuggestionsInDatabase();
         }
         protected void checkOutButton_Click(object sender, EventArgs e)
         {
@@ -375,7 +353,7 @@ namespace ConferenceTracker
             RunStartupRoutine();
 
             //LOAD Meeting List
-            SyncMeetingListWithMeetingDB();
+            SyncMeetingSuggestionsInDatabase();
         }
         protected void clearAllButton_Click(object sender, EventArgs e)
         {
@@ -396,7 +374,7 @@ namespace ConferenceTracker
 
             //LOAD Meeting List
             //Local Database of Meetings
-            SyncMeetingListWithMeetingDB();
+            SyncMeetingSuggestionsInDatabase();
 
         }
         public void RemoveAttendeeByEmployeeID(int employeeID)
@@ -448,16 +426,16 @@ namespace ConferenceTracker
                 db.Attendees.Remove(checkingOutAttendee);
             }
         }
-        public void SyncMeetingListWithEWSCalendar()
+        public void GetExchangeWebServicesAppointments()
         {
-            //ExchangeService service = CreateExchangeService();
+            ExchangeService _service = CreateExchangeService();
 
             if (_service.Url != null)
             {
                 // Initialize values for the start and end times, and the number of appointments to retrieve.
                 DateTime startDate = DateTime.Now;
                 DateTime endDate = startDate.AddYears(1);
-                const int NUM_APPTS = 4;
+                const int NUM_APPTS = 6;
 
                 // Initialize the calendar folder object with only the folder ID. 
                 CalendarFolder calendar = CalendarFolder.Bind(_service, WellKnownFolderName.Calendar, new PropertySet());
@@ -476,197 +454,73 @@ namespace ConferenceTracker
                 //Check if there are appointments
                 if (appointments != null)
                 {
-                    Meeting currentMeeting = db.Meetings.Where(m => m.Name != "Room Available" && m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
+                    // Find current meeting in database
+                    Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
 
-                    //Doesn't work
-                    if (db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault() == null)
-                    {
-                        db.Meetings.Add(new Meeting { MeetingID = 1, CalendarID = "", Name = "Room Available", StartTime = null, EndTime = null, RoomID = room.RoomID });
-                        //db.SaveChanges();
-                    }
-
-                    Appointment firstSuggestion;
-                    Appointment secondSuggestion;
-
-                    //True if available, False if not available
-                    bool roomAvailable = true;
-
-                    if (currentMeeting != null) { roomAvailable = false; }
-
-                    if (roomAvailable)
-                    {
-                        //Show the room is available
-                        SetNowDiv("Room Available", "", "", (room.RoomName + ":"));
-                        AddNewMeetingButton.Visible = true;
-                        ClearCurrentMeetingButton.Visible = false;
-
-                        nowInfoBox.Style.Remove("background");
-
-                        nowInfoBox.Style.Add("background", "#007600");
-                        nowInfoBox.Style.Add("background", "-webkit-gradient-webkit-gradient(linear, left top, left bottom, from(#fed403), to(#c9a800))");
-                        nowInfoBox.Style.Add("background", "-moz-linear-gradient(top, #007600, #006f00))");
-                        nowInfoBox.Style.Add("background", "linear-gradient(to bottom, #007600, #006f00)");
-
-                    }
-                    else
-                    {
-                        //Indicate the current Meeting
-                        SetNowDiv(currentMeeting.Name,
-                            currentMeeting.StartTime.Value.ToShortTimeString(),
-                            currentMeeting.EndTime.Value.ToShortTimeString(),
-                            (room.RoomName + ":"));
-                        if (currentMeeting.CalendarID.ToString() == "")
-                        {
-                            SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
-                        }
-                        nowInfoBox.Style.Remove("background");
-
-                        nowInfoBox.Style.Add("background", "#606060");
-
-                        AddNewMeetingButton.Visible = false;
-                        ClearCurrentMeetingButton.Visible = true;
-                    }
-
-                    // Will store meetings that have not been promoted yet
                     List<Appointment> inactivatedMeetings = new List<Appointment>();
 
-                    //Ensure that appointments from EWS exist
-                    if (appointments != null)
+                    // If meetings exist in the database
+                    if (currentMeeting != null)
                     {
-                        //If room is available, suggestions should be first two entries in appointments
-                        if (roomAvailable)
+                        // Find appointments that are not activated
+                        foreach (var a in appointments)
                         {
-                            //Set the suggestions
-                            inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
-                            inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
-                        }
-                        //If room is occupied, suggestions should be appointments NOT listed in appointments
-                        else
-                        {
-                            //Guests previously invited to meeting
-                            var invitedAttendeeToDelete = db.InvitedAttendees.Where(iatd => iatd.Room == room.RoomName).Select(iatd => iatd);
-                            //if the meeting id is the same, delete those attendees
-                            if (invitedAttendeeToDelete != null)
+                            // If the selected appointment does not match the current meeting
+                            if (!a.Id.Equals(currentMeeting.MeetingID))
                             {
-                                foreach (var iatd in invitedAttendeeToDelete)
+                                inactivatedMeetings.Add(a);
+                            }
+                        }
+
+                        // Suggestion Counter
+                        int index = 1;
+
+                        //first delete the meeting suggestions (ID's > 0) already in database
+                        foreach (var m in db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID != 0))
+                        {
+                            db.Meetings.Remove(m);
+
+                        }
+
+                        // Add the inactivated meetings to the Meetings database
+                        foreach (var a in inactivatedMeetings)
+                        {
+
+                            try
+                            {
+                                // Add meeting using appointment details
+                                AddMeetingToDB(new Meeting
                                 {
-                                    db.InvitedAttendees.Remove(iatd);
-                                }
-                                //Save Changes
+                                    MeetingID = index,
+                                    Name = TruncateMyLongString(a.Subject, 50),
+                                    StartTime = a.Start,
+                                    EndTime = a.End,
+                                    CalendarID = a.Id.ToString(),
+                                    RoomID = room.RoomID
+                                });
+
+                                // Save database changes
                                 db.SaveChanges();
 
-                            }
 
-                            // Loop through appointments and add inactivated appointments to inactivated appointments variable
-                            foreach (Appointment a in appointments)
-                            {
-                                if (!a.Id.ToString().Equals(currentMeeting.CalendarID.ToString()))
-                                {
-                                    inactivatedMeetings.Add(a);
-                                }
 
                             }
-
-
-
-
-                            //If all else fails, just set the next two appointments to the first two in the appointments list.
-                            if (inactivatedMeetings == null)
+                            // Catch errors adding meetings to database from EWS
+                            catch (Exception ex)
                             {
-                                inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(0));
-                                inactivatedMeetings.Add(appointments.Items.Cast<Appointment>().ElementAt(1));
+                                nowMeetingNameLabel.Text = ex.ToString();
+                                nowMeetingNameLabel.Font.Size = 10;
                             }
-
-
-                        }
-                        // Set first/second suggestions based on entries in inactivated meetings variable
-                        firstSuggestion = inactivatedMeetings.ElementAt(0);
-                        secondSuggestion = inactivatedMeetings.ElementAt(1);
-                        //Suggest the first meeting, adjusting for it's time
-                        if (firstSuggestion.Start < midnightTonight && firstSuggestion != null)
-                        {
-                            //Indicate the next meeting suggestion
-                            SetNext1Div(TruncateMyLongString(firstSuggestion.Subject, maxStringLength),
-                                firstSuggestion.Start.ToShortTimeString(),
-                                firstSuggestion.End.ToShortTimeString(),
-                                "Next:");
-
-                        }
-                        else
-                        {
-                            //Suggest a meeting for another day
-                            SetNext1Div(TruncateMyLongString(firstSuggestion.Subject, maxStringLength),
-                                firstSuggestion.Start.ToShortTimeString(),
-                                firstSuggestion.End.ToShortTimeString(),
-                                "-- " + firstSuggestion.Start.DayOfWeek.ToString() + " --");
-                        }
-
-                        //Suggest the second meeting, adjusting for it's time
-                        if (secondSuggestion.Start < midnightTonight && firstSuggestion != null)
-                        {
-                            //Indicate the next meeting suggestion
-                            SetNext2Div(TruncateMyLongString(secondSuggestion.Subject, maxStringLength),
-                                secondSuggestion.Start.ToShortTimeString(),
-                                secondSuggestion.End.ToShortTimeString(),
-                                "Next:");
-                        }
-                        else
-                        {
-                            //Suggest a meeting for another day
-                            SetNext2Div(TruncateMyLongString(secondSuggestion.Subject, maxStringLength),
-                                secondSuggestion.Start.ToShortTimeString(),
-                                secondSuggestion.End.ToShortTimeString(),
-                                "-- " + secondSuggestion.Start.DayOfWeek.ToString() + " --");
-                        }
-                        foreach (var meeting in db.Meetings.Where(m => m.MeetingID != 1 && m.RoomID == room.RoomID))
-                        {
-                            RemoveMeetingFromDB(meeting);
-                        }
-                        //Add the first/second suggestions to the meetings table
-                        //Input the meeting to the meetings table under meeting #2
-
-                        try
-                        {
-                            AddMeetingToDB(new Meeting
-                            {
-                                MeetingID = 2,
-                                Name = TruncateMyLongString(firstSuggestion.Subject, 50),
-                                StartTime = firstSuggestion.Start,
-                                EndTime = firstSuggestion.End,
-                                CalendarID = firstSuggestion.Id.ToString(),
-                                RoomID = room.RoomID
-                            });
-
-                            // db.SaveChanges();
-
-                            //Input the meeting to the meetings table under meeting #3
-                            AddMeetingToDB(new Meeting
-                            {
-                                MeetingID = 3,
-                                Name = TruncateMyLongString(secondSuggestion.Subject, 50),
-                                StartTime = secondSuggestion.Start,
-                                EndTime = secondSuggestion.End,
-                                CalendarID = secondSuggestion.Id.ToString(),
-                                RoomID = room.RoomID
-                            });
-                            //db.SaveChanges();
-                            db.SaveChanges();
-                        }
-                        catch (Exception ex)
-                        {
-                            nowMeetingNameLabel.Text = ex.ToString();
-                            nowMeetingNameLabel.Font.Size = 10;
+                            // Increment index
+                            index += 1;
                         }
 
                     }
-
-
                 }
+                // If no appointments are returned from EWS write out error in Now Div
                 if (appointments == null) { nowInfoBoxDescriptionLabel.Text = "Could not access Exchange Calendar"; }
-
             }
         }
-
         private ExchangeService CreateExchangeService()
         {
             ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
@@ -699,62 +553,133 @@ namespace ConferenceTracker
 
             return service;
         }
-
-        public void SyncMeetingListWithMeetingDB()
+        public void SyncMeetingSuggestionsInDatabase()
         {
-            Meeting currentMeeting = db.Meetings.Where(m => m.Name != "Room Available" && m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
+            // Find the current meeting
+            Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+            bool roomAvailable = true;
 
+            // If the database has no meeting entries
+            if (currentMeeting == null)
+            {
+                try
+                {
+                    // Add a current meeting (set room to Room Available status)
+                    db.Meetings.Add(new Meeting
+                    {
+                        CalendarID = "",
+                        Name = "Room Available",
+                        MeetingID = 0,
+                        RoomID = room.RoomID,
+                        StartTime = null,
+                        EndTime = null
+                    });
+
+                    // Save current meeting to database
+                    db.SaveChanges();
+
+                    //Update Suggestions list with EWS calendar
+                    GetExchangeWebServicesAppointments();
+
+
+                    // Update current Meeting to not be null
+                    currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+
+
+                    // Update current Meeting to not be null
+                    currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    nowMeetingNameLabel.Text = ex.ToString();
+                    nowMeetingNameLabel.Font.Size = 10;
+                }
+            }
+
+            // If the database has meeting entries
+            if (currentMeeting != null)
+            {
+                // See if the room is Available
+                roomAvailable = currentMeeting.Name.Equals("Room Available");
+
+                if (roomAvailable)
+                {
+                    // Set the Now Div to Room Available Settings
+                    //Show the room is available
+                    SetNowDiv("Room Available", "", "", (room.RoomName + ":"));
+                    AddNewMeetingButton.Visible = true;
+                    ClearCurrentMeetingButton.Visible = false;
+
+                    nowInfoBox.Style.Remove("background");
+
+                    nowInfoBox.Style.Add("background", "#007600");
+                    nowInfoBox.Style.Add("background", "-webkit-gradient-webkit-gradient(linear, left top, left bottom, from(#fed403), to(#c9a800))");
+                    nowInfoBox.Style.Add("background", "-moz-linear-gradient(top, #007600, #006f00))");
+                    nowInfoBox.Style.Add("background", "linear-gradient(to bottom, #007600, #006f00)");
+                }
+                else
+                {
+                    // Set the Now Div to Current Meeting Settings
+                    //Indicate the current Meeting
+                    SetNowDiv(TruncateMyLongString(currentMeeting.Name, maxStringLength),
+                        currentMeeting.StartTime.Value.ToShortTimeString(),
+                        currentMeeting.EndTime.Value.ToShortTimeString(),
+                        (room.RoomName + ":"));
+                    if (currentMeeting.CalendarID.ToString() == "")
+                    {
+                        SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
+                    }
+
+                    nowInfoBox.Style.Remove("background");
+
+                    nowInfoBox.Style.Add("background", "#606060");
+
+                    AddNewMeetingButton.Visible = false;
+                    ClearCurrentMeetingButton.Visible = true;
+                }
+            }
+
+            // Meeting Suggestions - not including current meeting
+            List<Meeting> meetingSuggestions = new List<Meeting>();
+            meetingSuggestions = db.Meetings.Where(m => !m.MeetingID.Equals(currentMeeting.MeetingID) && m.RoomID == room.RoomID).ToList();
+
+            // Sync up the Meeting Database with the new suggestions
+            foreach (var m in db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID != 0))
+            {
+                db.Meetings.Remove(m);
+            }
+            //Counting index
+            int index = 1;
+            foreach (var m in meetingSuggestions)
+            {
+                // Add the new meeting with the new adjusted index
+                db.Meetings.Add(new Meeting
+                {
+                    MeetingID = index,
+                    Name = m.Name,
+                    CalendarID = m.CalendarID,
+                    RoomID = m.RoomID,
+                    StartTime = m.StartTime,
+                    EndTime = m.EndTime
+                });
+                index += 1;
+            }
             Meeting firstSuggestion;
             Meeting secondSuggestion;
 
-            //True if available, False if not available
-            bool roomAvailable = true;
-
-            if (currentMeeting != null)
+            if (meetingSuggestions.Count >= 1)
             {
-                roomAvailable = false;
+                firstSuggestion = meetingSuggestions.ElementAt(0);  //first suggestion at index = 0
             }
-
-            if (roomAvailable)
+            else { firstSuggestion = null; }
+            if (meetingSuggestions.Count >= 2)
             {
-                //Show the room is available
-                SetNowDiv("Room Available", "", "", (room.RoomName + ":"));
-                AddNewMeetingButton.Visible = true;
-                ClearCurrentMeetingButton.Visible = false;
-
-                nowInfoBox.Style.Remove("background");
-
-                nowInfoBox.Style.Add("background", "#007600");
-                nowInfoBox.Style.Add("background", "-webkit-gradient-webkit-gradient(linear, left top, left bottom, from(#fed403), to(#c9a800))");
-                nowInfoBox.Style.Add("background", "-moz-linear-gradient(top, #007600, #006f00))");
-                nowInfoBox.Style.Add("background", "linear-gradient(to bottom, #007600, #006f00)");
-
+                secondSuggestion = meetingSuggestions.ElementAt(1); //second suggestion at index = 1
             }
-            else
-            {
-                //Indicate the current Meeting
-                SetNowDiv(TruncateMyLongString(currentMeeting.Name, maxStringLength),
-                    currentMeeting.StartTime.Value.ToShortTimeString(),
-                    currentMeeting.EndTime.Value.ToShortTimeString(),
-                    (room.RoomName + ":"));
-                if (currentMeeting.CalendarID.ToString() == "")
-                {
-                    SetNowDiv(currentMeeting.Name, "", "", room.RoomName.ToString() + ":");
-                }
+            else { secondSuggestion = null; }
 
-                nowInfoBox.Style.Remove("background");
-
-                nowInfoBox.Style.Add("background", "#606060");
-
-                AddNewMeetingButton.Visible = false;
-                ClearCurrentMeetingButton.Visible = true;
-            }
-
-
-            firstSuggestion = db.Meetings.Where(m => m.MeetingID == 2 && m.RoomID == room.RoomID).FirstOrDefault();
-            secondSuggestion = db.Meetings.Where(m => m.MeetingID == 3 && m.RoomID == room.RoomID).FirstOrDefault();
-
-            if (firstSuggestion != null && secondSuggestion != null)
+            // If a first suggestion exists
+            if (firstSuggestion != null)
             {
                 //Suggest the first meeting, adjusting for it's time
                 if (firstSuggestion.StartTime < midnightTonight && firstSuggestion != null)
@@ -774,7 +699,17 @@ namespace ConferenceTracker
                         firstSuggestion.EndTime.Value.ToShortTimeString(),
                         "-- " + firstSuggestion.StartTime.Value.DayOfWeek.ToString() + " --");
                 }
+            }
+            // If no first suggestion exists
+            else
+            {
+                // Error message
+                SetNext1Div("Refresh Suggestions", "", "", "");
+            }
 
+            // If a second suggestion exists
+            if (secondSuggestion != null)
+            {
                 //Suggest the second meeting, adjusting for it's time
                 if (secondSuggestion.StartTime < midnightTonight && firstSuggestion != null)
                 {
@@ -792,47 +727,13 @@ namespace ConferenceTracker
                         secondSuggestion.EndTime.Value.ToShortTimeString(),
                         "-- " + secondSuggestion.StartTime.Value.DayOfWeek.ToString() + " --");
                 }
-
-                foreach (var meeting in db.Meetings.Where(m => m.MeetingID != 1))
-                {
-                    db.Meetings.Remove(meeting);
-                }
-                //Add the first/second suggestions to the meetings table
-                //Input the meeting to the meetings table under meeting #2
-                db.Meetings.Add(new Meeting
-                {
-                    MeetingID = 2,
-                    Name = firstSuggestion.Name,
-                    StartTime = firstSuggestion.StartTime,
-                    EndTime = firstSuggestion.EndTime,
-                    CalendarID = "",
-                    RoomID = room.RoomID
-                });
-
-                db.SaveChanges();
-
-                //Input the meeting to the meetings table under meeting #3
-                db.Meetings.Add(new Meeting
-                {
-                    MeetingID = 3,
-                    Name = secondSuggestion.Name,
-                    StartTime = secondSuggestion.StartTime,
-                    EndTime = secondSuggestion.EndTime,
-                    CalendarID = "",
-                    RoomID = room.RoomID
-                });
-                // TODO Had this commented out
-                db.SaveChanges();
             }
+            // If no second suggestion exists
             else
             {
-                //Suggestions were null
-                //Therefore no suggestions are available at this time
-
-                //Indicate there are no suggestions available
-                SetNext1Div("No Suggestions Available", "", "", "");
-                SetNext2Div("Calendar Unable To Connect", "", "", "");
+                SetNext2Div("Refresh Suggestions", "", "", "");
             }
+
         }
         public void RemoveMeetingFromDB(Meeting meeting)
         {
@@ -848,7 +749,6 @@ namespace ConferenceTracker
         {
             ResetCurrentMeeting();
         }
-
         private void ResetCurrentMeeting()
         {
             DeleteCurrentMeeting();
@@ -859,7 +759,7 @@ namespace ConferenceTracker
             //Load "Room Available" Event into the database
             Meeting roomAvailableMeeting = new Meeting();
             roomAvailableMeeting.Name = "Room Available";
-            roomAvailableMeeting.MeetingID = 1;
+            roomAvailableMeeting.MeetingID = 0;
             roomAvailableMeeting.RoomID = room.RoomID;
 
             db.Meetings.Add(roomAvailableMeeting);
@@ -870,7 +770,7 @@ namespace ConferenceTracker
 
             //LOAD Meeting List
             //Local Meeting Database
-            SyncMeetingListWithMeetingDB();
+            SyncMeetingSuggestionsInDatabase();
 
             AddNewMeetingButton.Visible = true;
             ClearCurrentMeetingButton.Visible = false;
@@ -890,7 +790,7 @@ namespace ConferenceTracker
                 //Enter the new meeting into the meeting database under item 1
                 Meeting newMeeting = new Meeting();
                 newMeeting.Name = TruncateMyLongString(meetingNameTextbox.Text, 50);
-                newMeeting.MeetingID = 1;
+                newMeeting.MeetingID = 0;
                 newMeeting.StartTime = DateTime.Now;
                 newMeeting.EndTime = (DateTime.Now + TimeSpan.FromHours(1));
                 newMeeting.CalendarID = "";
@@ -910,7 +810,7 @@ namespace ConferenceTracker
 
                 //LOAD Meeting List
                 //Load local meetign Database
-                SyncMeetingListWithMeetingDB();
+                SyncMeetingSuggestionsInDatabase();
             }
         }
         protected void ActivateNext1MeetingButton_Click(object sender, EventArgs e)
@@ -918,7 +818,7 @@ namespace ConferenceTracker
             DeleteCurrentMeeting();
 
             //Find the next1 meeting
-            Meeting next1Meeting = db.Meetings.Where(m => m.MeetingID == 2 && m.RoomID == room.RoomID).FirstOrDefault();
+            Meeting next1Meeting = db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
             Meeting startingMeeting;
 
             if (next1Meeting != null)
@@ -926,7 +826,7 @@ namespace ConferenceTracker
                 //Create a new starting meeting
                 startingMeeting = new Meeting
                 {
-                    MeetingID = 1,
+                    MeetingID = 0,
                     CalendarID = next1Meeting.CalendarID,
                     Name = next1Meeting.Name,
                     StartTime = next1Meeting.StartTime,
@@ -934,27 +834,51 @@ namespace ConferenceTracker
                     RoomID = room.RoomID
                 };
 
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
             }
             else
             {
+                //Create a new Room Available starting meeting
                 startingMeeting = new Meeting
                 {
-                    MeetingID = 1,
+                    MeetingID = 0,
                     CalendarID = "",
-                    Name = next1MeetingNameLabel.Text,
-                    StartTime = DateTime.Now,
-                    EndTime = DateTime.Now.AddHours(1),
+                    Name = "Room Available",
+                    StartTime = null,
+                    EndTime = null,
                     RoomID = room.RoomID
                 };
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
 
             }
-            //Add the meeting to the db under the current meeting
-            db.Meetings.Add(startingMeeting);
-            db.SaveChanges();
+
+            //Delete the meeting that just got promoted
+            if (next1Meeting != null)
+            {
+                db.Meetings.Remove(next1Meeting);
+                db.SaveChanges();
+
+                SyncMeetingSuggestionsInDatabase();
+            }
 
             EnableNormalControls();
 
-            SyncMeetingListWithMeetingDB();
+
+
+            // Automatically update calendar if no suggestions available
+            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
+            {
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
+            }
 
             RunStartupRoutine();
         }
@@ -963,7 +887,7 @@ namespace ConferenceTracker
             DeleteCurrentMeeting();
 
             //Find the next2 meeting
-            Meeting next2Meeting = db.Meetings.Where(m => m.MeetingID == 3 && m.RoomID == room.RoomID).FirstOrDefault();
+            Meeting next2Meeting = db.Meetings.Where(m => m.MeetingID == 2 && m.RoomID == room.RoomID).FirstOrDefault();
             Meeting startingMeeting;
 
             if (next2Meeting != null)
@@ -971,35 +895,57 @@ namespace ConferenceTracker
                 //Create a new starting meeting
                 startingMeeting = new Meeting
                 {
-                    MeetingID = 1,
+                    MeetingID = 0,
                     CalendarID = next2Meeting.CalendarID,
                     Name = next2Meeting.Name,
                     StartTime = next2Meeting.StartTime,
                     EndTime = next2Meeting.EndTime,
                     RoomID = room.RoomID
                 };
+
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
             }
             else
             {
+                //Create a new Room Available starting meeting
                 startingMeeting = new Meeting
                 {
-                    MeetingID = 1,
+                    MeetingID = 0,
                     CalendarID = "",
-                    Name = next2MeetingNameLabel.Text,
-                    StartTime = DateTime.Now,
-                    EndTime = DateTime.Now.AddHours(1),
+                    Name = "Room Available",
+                    StartTime = null,
+                    EndTime = null,
                     RoomID = room.RoomID
                 };
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
+
             }
 
+            //Delete the meeting that just got promoted
+            if (next2Meeting != null)
+            {
+                db.Meetings.Remove(next2Meeting);
+                db.SaveChanges();
 
-            //Add the meeting to the db under the current meeting
-            db.Meetings.Add(startingMeeting);
-            db.SaveChanges();
+                SyncMeetingSuggestionsInDatabase();
+            }
 
             EnableNormalControls();
 
-            SyncMeetingListWithMeetingDB();
+            // Automatically update calendar if no suggestions available
+            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
+            {
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
+            }
 
             RunStartupRoutine();
 
@@ -1007,20 +953,12 @@ namespace ConferenceTracker
         }
         public void DeleteCurrentMeeting()
         {
-            //Remove invited attendees
-            var invitedAttendees = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
+
             //Remove current meeting
-            Meeting meetingToDelete = db.Meetings.Where(m => m.MeetingID == 1 && m.RoomID == room.RoomID).FirstOrDefault();
+            Meeting meetingToDelete = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
             if (meetingToDelete != null)
             {
                 db.Meetings.Remove(meetingToDelete);
-                if (invitedAttendees != null)
-                {
-                    foreach (var ia in invitedAttendees)
-                    {
-                        db.InvitedAttendees.Remove(ia);
-                    }
-                }
 
                 db.SaveChanges();
             }
@@ -1069,7 +1007,7 @@ namespace ConferenceTracker
 
 
             //LOAD Meeting List
-            SyncMeetingListWithMeetingDB();
+            SyncMeetingSuggestionsInDatabase();
         }
 
         public void EnableNewMeetingControls()
@@ -1147,10 +1085,10 @@ namespace ConferenceTracker
         protected void refreshButton_Click(object sender, EventArgs e)
         {
             //Sync the current meeting database with EWS
-            SyncMeetingListWithEWSCalendar();
+            GetExchangeWebServicesAppointments();
 
             //Then Sync meetings in meeting DB
-            SyncMeetingListWithMeetingDB();
+            SyncMeetingSuggestionsInDatabase();
         }
     }
 }
