@@ -47,6 +47,27 @@ namespace ConferenceTracker
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
+            // Find the room in the database
+            room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
+
+            //If room not recognized in database, set it up by hardcoding
+            if (room == null)
+            {
+                Room newRoom = new Room();
+                //Set Conference Room Info
+                newRoom.RoomID = conferenceRoomID;
+                newRoom.RoomName = "Training Room";
+                newRoom.RoomStatusID = 12; //Training
+                newRoom.RoomEmailAddress = "training@i2r.com";
+                newRoom.RoomEmailPassword = "Catesuser1";
+                newRoom.RoomEmailboxURL = "https://mex07a.emailsrvr.com/EWS/Exchange.asmx";
+
+                //Save room in Database
+                db.SaveChanges();
+
+                room = db.Rooms.Where(room => room.RoomID == conferenceRoomID).FirstOrDefault();
+            }
+
             //Run through startup routine if first page view
             if (!IsPostBack)
             {
