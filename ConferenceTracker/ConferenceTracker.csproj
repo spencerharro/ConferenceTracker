@@ -162,7 +162,6 @@
     <Compile Include="Attendee.cs">
       <DependentUpon>Model4.tt</DependentUpon>
     </Compile>
-    <Compile Include="Calendar.cs" />
     <Compile Include="ConfRoom.cs">
       <DependentUpon>Model4.tt</DependentUpon>
     </Compile>

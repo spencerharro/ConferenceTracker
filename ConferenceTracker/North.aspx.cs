@@ -30,9 +30,6 @@ namespace ConferenceTracker
         //Initialize Conference Room
         Room room;
 
-        //Create EWS service
-        ExchangeService _service;
-
         //Set midnight tonight time for UI Calendar reference
         static DateTime midnightTonight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day + 1, 0, 0, 0);
 
@@ -444,8 +441,133 @@ namespace ConferenceTracker
                 db.Attendees.Remove(checkingOutAttendee);
             }
         }
-        
-        
+        public void GetExchangeWebServicesAppointments()
+        {
+            ExchangeService _service = CreateExchangeService();
+
+            if (_service.Url != null)
+            {
+                // Initialize values for the start and end times, and the number of appointments to retrieve.
+                DateTime startDate = DateTime.Now;
+                DateTime endDate = startDate.AddYears(1);
+                const int NUM_APPTS = 6;
+
+                // Initialize the calendar folder object with only the folder ID. 
+                CalendarFolder calendar = CalendarFolder.Bind(_service, WellKnownFolderName.Calendar, new PropertySet());
+
+                // Set the start and end time and number of appointments to retrieve.
+                CalendarView cView = new CalendarView(startDate, endDate, NUM_APPTS);
+
+                // Limit the properties returned to the appointment's subject, start time, and end time.
+                cView.PropertySet = new PropertySet(AppointmentSchema.Subject,
+                    AppointmentSchema.Start,
+                    AppointmentSchema.End);
+
+                // Retrieve a collection of appointments by using the calendar view.
+                FindItemsResults<Appointment> appointments = calendar.FindAppointments(cView);
+
+                //Check if there are appointments
+                if (appointments != null)
+                {
+                    // Find current meeting in database
+                    Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+
+                    List<Appointment> inactivatedMeetings = new List<Appointment>();
+
+                    // If meetings exist in the database
+                    if (currentMeeting != null)
+                    {
+                        // Find appointments that are not activated
+                        foreach (var a in appointments)
+                        {
+                            // If the selected appointment does not match the current meeting
+                            if (!a.Id.Equals(currentMeeting.MeetingID))
+                            {
+                                inactivatedMeetings.Add(a);
+                            }
+                        }
+
+                        // Suggestion Counter
+                        int index = 1;
+
+                        //first delete the meeting suggestions (ID's > 0) already in database
+                        foreach (var m in db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID != 0))
+                        {
+                            db.Meetings.Remove(m);
+
+                        }
+
+                        // Add the inactivated meetings to the Meetings database
+                        foreach (var a in inactivatedMeetings)
+                        {
+                            
+                            try
+                                {
+                                    // Add meeting using appointment details
+                                    AddMeetingToDB(new Meeting
+                                    {
+                                        MeetingID = index,
+                                        Name = TruncateMyLongString(a.Subject, 50),
+                                        StartTime = a.Start,
+                                        EndTime = a.End,
+                                        CalendarID = a.Id.ToString(),
+                                        RoomID = room.RoomID
+                                    });
+
+                                    // Save database changes
+                                    db.SaveChanges();
+
+                                    
+
+                                }
+                                // Catch errors adding meetings to database from EWS
+                                catch (Exception ex)
+                                {
+                                    nowMeetingNameLabel.Text = ex.ToString();
+                                    nowMeetingNameLabel.Font.Size = 10;
+                                }
+                            // Increment index
+                            index += 1;
+                        }
+
+                    }
+                }
+                // If no appointments are returned from EWS write out error in Now Div
+                if (appointments == null) { nowInfoBoxDescriptionLabel.Text = "Could not access Exchange Calendar"; }
+            }
+        }
+        private ExchangeService CreateExchangeService()
+        {
+            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
+
+            service.Credentials = new WebCredentials(room.RoomEmailAddress, room.RoomEmailPassword);
+
+            try
+            {
+                // Previous saved connection string
+                service.Url = new Uri(room.RoomEmailboxURL);
+            }
+            catch
+            {
+                try
+                {
+                    // Use autodiscover service to relocate url
+                    service.AutodiscoverUrl(room.RoomEmailAddress, RedirectionUrlValidationCallback);
+                    //Save new url TODO
+                    room.RoomEmailAddress = service.Url.AbsoluteUri;
+                    db.SaveChanges();
+
+                }
+                catch (Exception ex)
+                {
+                    // Return an error that the url could not be found (In Now Div)
+                    nowMeetingNameLabel.Text = ex.ToString();
+                    nowMeetingNameLabel.Font.Size = 10;
+                }
+            }
+
+            return service;
+        }
         public void SyncMeetingSuggestionsInDatabase()
         {
             // Find the current meeting
@@ -526,11 +648,7 @@ namespace ConferenceTracker
 
             // Meeting Suggestions - not including current meeting
             List<Meeting> meetingSuggestions = new List<Meeting>();
-            var meetingSuggestionsVar = db.Meetings.Where(m => !m.MeetingID.Equals(currentMeeting.MeetingID) && m.RoomID == room.RoomID);
-            if(meetingSuggestionsVar != null)
-            {
-                meetingSuggestions = meetingSuggestionsVar.ToList();
-            }
+            meetingSuggestions = db.Meetings.Where(m => !m.MeetingID.Equals(currentMeeting.MeetingID) && m.RoomID == room.RoomID).ToList();
 
             // Sync up the Meeting Database with the new suggestions
             foreach (var m in db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID != 0)){
@@ -695,27 +813,6 @@ namespace ConferenceTracker
 
                 RunStartupRoutine();
 
-                // Create Exchange Service
-                _service = CreateExchangeService();
-                if (_service.Url != null)
-                {
-                    //Add the new meeting to the Outlook Calendar
-                    Appointment currentAppointment = new Appointment(_service);
-                    currentAppointment.Subject = newMeeting.Name;
-                    currentAppointment.Start = DateTime.Now;
-                    currentAppointment.End = DateTime.Now.AddHours(1);
-                    currentAppointment.Location = room.RoomName.ToString();
-
-                    // Save the appointment to the calendar
-                    try
-                    {
-                        currentAppointment.Save(SendInvitationsMode.SendToNone);
-                    }
-                    catch (Exception ex)
-                    {
-                        nowInfoBox.InnerText = "Error: " + ex.InnerException.ToString();
-                    }
-                }
                 //LOAD Meeting List
                 //Load local meetign Database
                 SyncMeetingSuggestionsInDatabase();
@@ -953,7 +1050,22 @@ namespace ConferenceTracker
         {
             return str.Substring(0, Math.Min(str.Length, maxLenth));
         }
-        
+        private static bool RedirectionUrlValidationCallback(string redirectionUrl)
+        {
+            // The default for the validation callback is to reject the URL.
+            bool result = false;
+
+            Uri redirectionUri = new Uri(redirectionUrl);
+
+            // Validate the contents of the redirection URL. In this simple validation
+            // callback, the redirection URL is considered valid if it is using HTTPS
+            // to encrypt the authentication credentials. 
+            if (redirectionUri.Scheme == "https")
+            {
+                result = true;
+            }
+            return result;
+        }
 
         protected void refreshButton_Click(object sender, EventArgs e)
         {
