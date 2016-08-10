@@ -39,6 +39,8 @@ namespace ConferenceTracker
         //Set ConferenceRoomID
         static int conferenceRoomID = 1;
 
+        //Exchange
+        ExchangeService service;
         // ------------------------------------------------------------ //
         protected void Page_Load(object sender, EventArgs e)
         {
@@ -538,7 +540,7 @@ namespace ConferenceTracker
         }
         private ExchangeService CreateExchangeService()
         {
-            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
+            service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
 
             service.Credentials = new WebCredentials(room.RoomEmailAddress, room.RoomEmailPassword);
 
@@ -811,6 +813,25 @@ namespace ConferenceTracker
                 db.Meetings.Add(newMeeting);
                 db.SaveChanges();
 
+                // Try adding the meeting to EWS calendar
+                try
+                {
+                    //Get EWS service
+                    service = CreateExchangeService();
+
+                    Appointment newAppointment = new Appointment(service);
+                    newAppointment.Subject = newMeeting.Name;
+                    newAppointment.Location = room.RoomName;
+                    newAppointment.Start = DateTime.Parse(newMeeting.StartTime.ToString());
+                    newAppointment.End = DateTime.Parse(newMeeting.EndTime.ToString());
+                    newAppointment.Save(SendInvitationsMode.SendToNone);
+                }
+                catch
+                {
+
+                }
+                
+            
                 //Set the meeting on the Now Div
                 SetNowDiv(newMeeting.Name, newMeeting.StartTime.Value.ToShortTimeString(), newMeeting.EndTime.Value.ToShortTimeString(), (room.RoomName + ":"));
 
