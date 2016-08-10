@@ -847,34 +847,44 @@ namespace ConferenceTracker
                     RoomID = room.RoomID
                 };
 
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
             }
             else
             {
+                //Create a new Room Available starting meeting
                 startingMeeting = new Meeting
                 {
                     MeetingID = 0,
                     CalendarID = "",
-                    Name = next1MeetingNameLabel.Text,
-                    StartTime = DateTime.Now,
-                    EndTime = DateTime.Now.AddHours(1),
+                    Name = "Room Available",
+                    StartTime = null,
+                    EndTime = null,
                     RoomID = room.RoomID
                 };
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
 
             }
-            //Add the meeting to the db under the current meeting
-            db.Meetings.Add(startingMeeting);
+            
             //Delete the meeting that just got promoted
             if(next1Meeting != null)
             {
                 db.Meetings.Remove(next1Meeting);
+                db.SaveChanges();
+
+                SyncMeetingSuggestionsInDatabase();
             }
             
-
-            db.SaveChanges();
-
             EnableNormalControls();
 
-            SyncMeetingSuggestionsInDatabase();
+            
 
             // Automatically update calendar if no suggestions available
             if(db.Meetings.Where(m=>m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
@@ -905,33 +915,43 @@ namespace ConferenceTracker
                     EndTime = next2Meeting.EndTime,
                     RoomID = room.RoomID
                 };
+
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
             }
             else
             {
+                //Create a new Room Available starting meeting
                 startingMeeting = new Meeting
                 {
                     MeetingID = 0,
                     CalendarID = "",
-                    Name = next2MeetingNameLabel.Text,
-                    StartTime = DateTime.Now,
-                    EndTime = DateTime.Now.AddHours(1),
+                    Name = "Room Available",
+                    StartTime = null,
+                    EndTime = null,
                     RoomID = room.RoomID
                 };
+                //Add the meeting to the db under the current meeting
+                db.Meetings.Add(startingMeeting);
+                db.SaveChanges();
+
+                GetExchangeWebServicesAppointments();
+                SyncMeetingSuggestionsInDatabase();
+
             }
 
-
-            //Add the meeting to the db under the current meeting
-            db.Meetings.Add(startingMeeting);
             //Delete the meeting that just got promoted
             if (next2Meeting != null)
             {
                 db.Meetings.Remove(next2Meeting);
+                db.SaveChanges();
+
+                SyncMeetingSuggestionsInDatabase();
             }
-            db.SaveChanges();
 
             EnableNormalControls();
-
-            SyncMeetingSuggestionsInDatabase();
 
             // Automatically update calendar if no suggestions available
             if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
