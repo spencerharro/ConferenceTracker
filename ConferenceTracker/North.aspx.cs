@@ -596,7 +596,15 @@ namespace ConferenceTracker
                     //Update Suggestions list with EWS calendar
                     GetExchangeWebServicesAppointments();
 
-                }catch(Exception ex)
+
+                    // Update current Meeting to not be null
+                    currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+
+
+                    // Update current Meeting to not be null
+                    currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+                }
+                catch(Exception ex)
                 {
                     nowMeetingNameLabel.Text = ex.ToString();
                     nowMeetingNameLabel.Font.Size = 10;
@@ -926,7 +934,7 @@ namespace ConferenceTracker
             SyncMeetingSuggestionsInDatabase();
 
             // Automatically update calendar if no suggestions available
-            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 1 && m.CalendarID != "").FirstOrDefault() == null)
+            if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
                 GetExchangeWebServicesAppointments();
                 SyncMeetingSuggestionsInDatabase();
