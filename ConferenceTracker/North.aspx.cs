@@ -793,7 +793,7 @@ namespace ConferenceTracker
 
         public void AddNewMeetingButton_Click(object sender, EventArgs e)
         {
-            DeleteCurrentMeeting();
+            
 
             //Check if text has been entered
             if (meetingNameTextbox.Text == "")
@@ -802,6 +802,8 @@ namespace ConferenceTracker
             }
             else
             {
+                DeleteCurrentMeeting();
+
                 //Enter the new meeting into the meeting database under item 1
                 Meeting newMeeting = new Meeting();
                 newMeeting.Name = TruncateMyLongString(meetingNameTextbox.Text, 50);
