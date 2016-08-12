@@ -465,7 +465,7 @@ namespace ConferenceTracker
         }
         public void GetExchangeWebServicesAppointments()
         {
-            ExchangeService _service = CreateExchangeService();
+             _service = CreateExchangeService();
 
             if (_service.Url != null)
             {
@@ -509,8 +509,10 @@ namespace ConferenceTracker
                             }
 
                             //Save the attendees
-                            SaveInactivatedEmployeesToDatabase(a,_service);
+                            //TODO: reactivate this SaveInactivatedEmployeesToDatabase(a,_service);
                         }
+                        //TODO: try this
+                        //SaveInactivatedEmployeesToDatabase(appointments.ElementAt(0), _service);
 
                         // Suggestion Counter
                         int index = 1;
