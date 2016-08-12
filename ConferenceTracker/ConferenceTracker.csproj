@@ -131,6 +131,7 @@
   <ItemGroup>
     <Content Include="North.aspx" />
     <Content Include="South.aspx" />
+    <Content Include="Test.aspx" />
     <Content Include="Training.aspx" />
     <Content Include="Web.config" />
   </ItemGroup>
@@ -240,6 +241,13 @@
     </Compile>
     <Compile Include="sysdiagram.cs">
       <DependentUpon>Model4.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Test.aspx.cs">
+      <DependentUpon>Test.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Test.aspx.designer.cs">
+      <DependentUpon>Test.aspx</DependentUpon>
     </Compile>
     <Compile Include="Training.aspx.cs">
       <DependentUpon>Training.aspx</DependentUpon>
