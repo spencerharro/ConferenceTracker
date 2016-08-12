@@ -3,13 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.UI;
-using System.Web.UI.WebControls;
-//Google
-using Google.Apis.Auth.OAuth2;
-using Google.Apis.Calendar.v3;
-using Google.Apis.Calendar.v3.Data;
-using Google.Apis.Services;
-using Google.Apis.Util.Store;
+
 //using System;
 //using System.Collections.Generic;
 using System.IO;
@@ -21,6 +15,7 @@ using System.Threading.Tasks;
 //Microsoft
 using Microsoft.Exchange.WebServices.Data;
 using Microsoft.Exchange.WebServices;
+using System.Web.UI.WebControls;
 
 namespace ConferenceTracker
 {
