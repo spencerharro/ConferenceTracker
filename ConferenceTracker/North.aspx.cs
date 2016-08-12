@@ -220,7 +220,7 @@ namespace ConferenceTracker
             var employeesNotCheckedIn = employees.Where(ee => employeesWhoAreAttendees.All(aa => ee.EmployeeID != aa.EmployeeID)).OrderBy(ee => ee.FirstName.ToString());
 
             //Create a drop down list entry at the top for employees who are required/optional meeting attendees
-            string currentMeetingID = db.Meetings.Where(m => m.CalendarID != "" && m.MeetingID == 0).Select(m => m.CalendarID).First();
+            string currentMeetingID = db.Meetings.Where(m => m.CalendarID != "" && m.MeetingID == 0).Select(m => m.CalendarID).FirstOrDefault();
 
             if (currentMeetingID != null)
             {
