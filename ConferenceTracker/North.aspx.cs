@@ -507,11 +507,16 @@ namespace ConferenceTracker
                             {
                                 inactivatedMeetings.Add(a);
                             }
-
-                            //Save the attendees
-                            //TODO: reactivate this 
-                            SaveInactivatedEmployeesToDatabase(a,_service);
+                            // If the selected appointment DOES match the current meeting
+                            else
+                            {
+                                //Save the attendees
+                                //TODO: reactivate this 
+                                SaveInactivatedEmployeesToDatabase(a, _service);
+                            }
+                            
                         }
+
                         //TODO: try this
                         //SaveInactivatedEmployeesToDatabase(appointments.ElementAt(0), _service);
 
@@ -742,6 +747,9 @@ namespace ConferenceTracker
 
                     AddNewMeetingButton.Visible = false;
                     ClearCurrentMeetingButton.Visible = true;
+
+                    //TODO: See if this slows dramatically the application
+                    GetExchangeWebServicesAppointments();
                 }
             }
 
