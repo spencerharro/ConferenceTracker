@@ -72,7 +72,7 @@ namespace ConferenceTracker
                 EnableNormalControls();
 
                 //Sync Meeting Database with Exchange Calendar
-                GetExchangeWebServicesAppointments();
+                AddExchangeWebServicesAppointmentsToDatabase();
 
                 //Sync Meetings Displayed with Meeting Database
                 SyncMeetingSuggestionsInDatabase();
@@ -103,7 +103,7 @@ namespace ConferenceTracker
             if (db.Meetings.Where(m => m.RoomID == room.RoomID) == null || db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID) == null)
             {
                 //Exchange Calendar
-                GetExchangeWebServicesAppointments();
+                AddExchangeWebServicesAppointmentsToDatabase();
                 //Meeting Database Table
                 SyncMeetingSuggestionsInDatabase();
             }
@@ -463,16 +463,17 @@ namespace ConferenceTracker
                 db.Attendees.Remove(checkingOutAttendee);
             }
         }
-        public void GetExchangeWebServicesAppointments()
+        public FindItemsResults<Appointment> GetAppointments(int numberAppointments)
         {
             _service = CreateExchangeService();
+            FindItemsResults<Appointment> appointments;
 
             if (_service.Url != null)
             {
                 // Initialize values for the start and end times, and the number of appointments to retrieve.
                 DateTime startDate = DateTime.Now;
                 DateTime endDate = startDate.AddYears(1);
-                const int NUM_APPTS = 6;
+                int NUM_APPTS = numberAppointments;
 
                 // Initialize the calendar folder object with only the folder ID. 
                 CalendarFolder calendar = CalendarFolder.Bind(_service, WellKnownFolderName.Calendar, new PropertySet());
@@ -486,89 +487,105 @@ namespace ConferenceTracker
                     AppointmentSchema.End);
 
                 // Retrieve a collection of appointments by using the calendar view.
-                FindItemsResults<Appointment> appointments = calendar.FindAppointments(cView);
+                appointments = calendar.FindAppointments(cView);
+            }
+            else
+            {
+                //Return nothing if nothing is returned in EWS query
+                appointments = null;
+            }
+            return appointments;
+            
+        }
 
-                //Check if there are appointments
-                if (appointments != null)
+        public void AddExchangeWebServicesAppointmentsToDatabase()
+        {
+            // Get 6 appointments
+            int NUM_APPOINTMENTS = 6;
+
+            FindItemsResults<Appointment> appointments = GetAppointments(NUM_APPOINTMENTS);
+
+            //Check if there are appointments
+            if (appointments != null)
+            {
+                // Find current meeting in database
+                Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
+
+                List<Appointment> inactivatedMeetings = new List<Appointment>();
+
+                // If meetings exist in the database
+                if (currentMeeting != null)
                 {
-                    // Find current meeting in database
-                    Meeting currentMeeting = db.Meetings.Where(m => m.MeetingID == 0 && m.RoomID == room.RoomID).FirstOrDefault();
-
-                    List<Appointment> inactivatedMeetings = new List<Appointment>();
-
-                    // If meetings exist in the database
-                    if (currentMeeting != null)
+                    // Find appointments that are not activated
+                    foreach (var a in appointments)
                     {
-                        // Find appointments that are not activated
-                        foreach (var a in appointments)
+                        // If the selected appointment does not match the current meeting
+                        if (!a.Id.Equals(currentMeeting.MeetingID))
                         {
-                            // If the selected appointment does not match the current meeting
-                            if (!a.Id.Equals(currentMeeting.MeetingID))
-                            {
-                                inactivatedMeetings.Add(a);
-                            }
-                            // If the selected appointment DOES match the current meeting
-                            else
-                            {
-                                //Save the attendees
-                                //TODO: reactivate this 
-                                SaveInactivatedEmployeesToDatabase(a, _service);
-                            }
-                            
+                            inactivatedMeetings.Add(a);
                         }
-
-                        //TODO: try this
-                        //SaveInactivatedEmployeesToDatabase(appointments.ElementAt(0), _service);
-
-                        // Suggestion Counter
-                        int index = 1;
-
-                        //first delete the meeting suggestions (ID's > 0) already in database
-                        foreach (var m in db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID != 0))
+                        // If the selected appointment DOES match the current meeting
+                        else
                         {
-                            db.Meetings.Remove(m);
-
-                        }
-
-                        // Add the inactivated meetings to the Meetings database
-                        foreach (var a in inactivatedMeetings)
-                        {
-
-                            try
-                            {
-                                // Add meeting using appointment details
-                                AddMeetingToDB(new Meeting
-                                {
-                                    MeetingID = index,
-                                    Name = TruncateMyLongString(a.Subject, 50),
-                                    StartTime = a.Start,
-                                    EndTime = a.End,
-                                    CalendarID = a.Id.ToString(),
-                                    RoomID = room.RoomID
-                                });
-
-                                // Save database changes
-                                db.SaveChanges();
-
-
-
-                            }
-                            // Catch errors adding meetings to database from EWS
-                            catch (Exception ex)
-                            {
-                                nowMeetingNameLabel.Text = ex.ToString();
-                                nowMeetingNameLabel.Font.Size = 10;
-                            }
-                            // Increment index
-                            index += 1;
+                            //Save the attendees
+                            //TODO: reactivate this 
+                            SaveInactivatedEmployeesToDatabase(a, _service);
                         }
 
                     }
+
+                    //TODO: try this
+                    //SaveInactivatedEmployeesToDatabase(appointments.ElementAt(0), _service);
+
+                    // Suggestion Counter
+                    int index = 1;
+
+                    //first delete the meeting suggestions (ID's > 0) already in database
+                    foreach (var m in db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID != 0))
+                    {
+                        db.Meetings.Remove(m);
+
+                    }
+
+                    // Add the inactivated meetings to the Meetings database
+                    foreach (var a in inactivatedMeetings)
+                    {
+
+                        try
+                        {
+                            // Add meeting using appointment details
+                            AddMeetingToDB(new Meeting
+                            {
+                                MeetingID = index,
+                                Name = TruncateMyLongString(a.Subject, 50),
+                                StartTime = a.Start,
+                                EndTime = a.End,
+                                CalendarID = a.Id.ToString(),
+                                RoomID = room.RoomID
+                            });
+
+                            // Save database changes
+                            db.SaveChanges();
+
+
+
+                        }
+                        // Catch errors adding meetings to database from EWS
+                        catch (Exception ex)
+                        {
+                            nowMeetingNameLabel.Text = ex.ToString();
+                            nowMeetingNameLabel.Font.Size = 10;
+                        }
+                        // Increment index
+                        index += 1;
+                    }
+
                 }
-                // If no appointments are returned from EWS write out error in Now Div
-                if (appointments == null) { nowInfoBoxDescriptionLabel.Text = "Could not access Exchange Calendar"; }
             }
+            // If no appointments are returned from EWS write out error in Now Div
+            if (appointments == null) { nowInfoBoxDescriptionLabel.Text = "Could not access Exchange Calendar"; }
         }
+
 
         private void SaveInactivatedEmployeesToDatabase(Appointment a, ExchangeService _service)
         {
@@ -690,7 +707,7 @@ namespace ConferenceTracker
                     db.SaveChanges();
 
                     //Update Suggestions list with EWS calendar
-                    GetExchangeWebServicesAppointments();
+                    AddExchangeWebServicesAppointmentsToDatabase();
 
 
                     // Update current Meeting to not be null
@@ -748,8 +765,25 @@ namespace ConferenceTracker
                     AddNewMeetingButton.Visible = false;
                     ClearCurrentMeetingButton.Visible = true;
 
-                    //TODO: See if this slows dramatically the application
-                    GetExchangeWebServicesAppointments();
+                    //TODO: Get current appointments from EWS calendar (get 6 of them - arbitrary)
+                    FindItemsResults<Appointment> appointments = GetAppointments(6);
+
+                    //If appointments are returned and the EWS service exists
+                    if(appointments != null && _service != null)
+                    {
+                        // Loop through appointments
+                        foreach (var a in appointments)
+                        {
+                            // See if one of the appointments matches up with current meeting by ID.  Or if invited attendees already exist for current meeting:
+                            if (a.Id.UniqueId.Equals(currentMeeting.CalendarID) && !db.InvitedAttendees.Where(att => att.MeetingID.Equals(currentMeeting.MeetingID)).Equals(null))
+                            {
+                                // See if employees for the current meeting are already in the database.  If not:
+                                if (db.InvitedAttendees.Where(ia => ia.MeetingID == currentMeeting.CalendarID) != null) {
+                                    SaveInactivatedEmployeesToDatabase(a, _service);
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -988,7 +1022,7 @@ namespace ConferenceTracker
                 db.Meetings.Add(startingMeeting);
                 db.SaveChanges();
 
-                GetExchangeWebServicesAppointments();
+                AddExchangeWebServicesAppointmentsToDatabase();
                 SyncMeetingSuggestionsInDatabase();
 
             }
@@ -1009,7 +1043,7 @@ namespace ConferenceTracker
             // Automatically update calendar if no suggestions available
             if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
-                GetExchangeWebServicesAppointments();
+                AddExchangeWebServicesAppointmentsToDatabase();
                 SyncMeetingSuggestionsInDatabase();
             }
 
@@ -1057,7 +1091,7 @@ namespace ConferenceTracker
                 db.Meetings.Add(startingMeeting);
                 db.SaveChanges();
 
-                GetExchangeWebServicesAppointments();
+                AddExchangeWebServicesAppointmentsToDatabase();
                 SyncMeetingSuggestionsInDatabase();
 
             }
@@ -1076,7 +1110,7 @@ namespace ConferenceTracker
             // Automatically update calendar if no suggestions available
             if (db.Meetings.Where(m => m.RoomID == room.RoomID && m.MeetingID > 0 && m.CalendarID != "").FirstOrDefault() == null)
             {
-                GetExchangeWebServicesAppointments();
+                AddExchangeWebServicesAppointmentsToDatabase();
                 SyncMeetingSuggestionsInDatabase();
             }
 
@@ -1229,7 +1263,7 @@ namespace ConferenceTracker
         protected void refreshButton_Click(object sender, EventArgs e)
         {
             //Sync the current meeting database with EWS
-            GetExchangeWebServicesAppointments();
+            AddExchangeWebServicesAppointmentsToDatabase();
 
             //Then Sync meetings in meeting DB
             SyncMeetingSuggestionsInDatabase();
