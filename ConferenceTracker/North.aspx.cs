@@ -493,7 +493,7 @@ namespace ConferenceTracker
             }
             else
             {
-                //Return nothing if nothing is returned in EWS query
+                //Return nothing if nothing is returned in EWS query 
                 appointments = null;
             }
             return appointments;
