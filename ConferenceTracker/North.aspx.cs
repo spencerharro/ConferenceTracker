@@ -225,14 +225,16 @@ namespace ConferenceTracker
             if (currentMeetingID != null)
             {
                 var currentMeetingInvites = db.InvitedAttendees
-                                .Where(att => att.Room == room.RoomName
-                                && att.MeetingID == currentMeetingID);
+                                .Where(att => att.Room == room.RoomName).Select(att => att);
 
                 if (currentMeetingInvites != null)
                 {
-                    foreach (InvitedAttendee ia in currentMeetingInvites)
+                    foreach (var ia in currentMeetingInvites)
                     {
-                        employeeDropDownBox.Items.Add(CreateListItemWithColor(ia.Name.ToString(), ia.EmployeeID.ToString(), "green"));
+                        if(ia.Name != room.RoomName)
+                        {
+                            employeeDropDownBox.Items.Add(CreateListItem(ia.Name.ToString(), ia.EmployeeID.ToString()));
+                        }
                     }
                 }
 
@@ -592,6 +594,16 @@ namespace ConferenceTracker
             // Get current EWS appointment and see its detailed properties
             var appointment = Appointment.Bind(_service, a.Id, new PropertySet(BasePropertySet.FirstClassProperties));
 
+            var invitedAttendeesToBeDeleted = db.InvitedAttendees.Where(att => att.Room == room.RoomName);
+            if (invitedAttendeesToBeDeleted != null)
+            {
+                foreach (var ia in invitedAttendeesToBeDeleted)
+                {
+                    db.InvitedAttendees.Remove(ia);
+                }
+                db.SaveChanges();
+            }
+           
             // Loop through the appointment attendee invites and add them to the InvitedAttendees data table
             foreach (var att in appointment.RequiredAttendees/*.Concat(appointment.OptionalAttendees)*/)
             {
